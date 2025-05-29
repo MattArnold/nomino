@@ -37,6 +37,7 @@ var tile_textures = {
 	"sand": preload("res://assets/tiles/sand_cube.png"),
 	"water": preload("res://assets/tiles/water_cube.png"),
 	"plants": preload("res://assets/tiles/plants_grass_cube.png"),
+	"border": preload("res://assets/tiles/border_cube.png"), # Added border texture
 }
 
 func _ready():
@@ -46,11 +47,12 @@ func _ready():
 		var nomino_layer = Node2D.new()
 		nomino_layer.name = "NominoLayer"
 		add_child(nomino_layer)
-	# Configure noise generators
+	# The desired noise type is Open Simplex 2, which is 0
 	terrain_noise.noise_type = 0
 	terrain_noise.seed = randi()
 	terrain_noise.frequency = 1  # controls patch size
 
+	# The desired noise type is Open Simplex 2, which is 0
 	elevation_noise.noise_type = 0
 	elevation_noise.seed = randi()
 	elevation_noise.frequency = 0.1
@@ -105,20 +107,27 @@ func place_tiles():
 			var wx = vx + world_offset_x
 			var wy = vy + world_offset_y
 
+			var tile_sprite
 			if wx < 0 or wx >= WORLD_WIDTH or wy < 0 or wy >= WORLD_HEIGHT:
-				tile_sprites[vx].append(null)
-				continue  # skip out-of-bounds
-
-			var tile_sprite = create_tile_sprite(wx, wy)
+				# Out-of-bounds: show border sprite
+				tile_sprite = Sprite2D.new()
+				tile_sprite.texture = tile_textures["border"]
+				tile_sprite.z_index = 0
+				# Scale border sprite
+				var tex_size = tile_sprite.texture.get_size()
+				if tex_size.x > 0 and tex_size.y > 0:
+					tile_sprite.scale = Vector2(TILE_WIDTH / tex_size.x, TILE_WIDTH / tex_size.y)
+			else:
+				tile_sprite = create_tile_sprite(wx, wy)
 			tile_sprites[vx].append(tile_sprite)
 			add_child(tile_sprite)
-			
 			# Position sprite immediately
 			var screen_pos = viewboard_to_screen_coords(vx, vy)
-			var elevation = elevation_map[wx][wy]
 			var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
 			tile_sprite.position = screen_pos + screen_offset
-			tile_sprite.position.y -= elevation * 6
+			if wx >= 0 and wx < WORLD_WIDTH and wy >= 0 and wy < WORLD_HEIGHT:
+				var elevation = elevation_map[wx][wy]
+				tile_sprite.position.y -= elevation * 6
 
 func decorate_terrain():
 	for x in range(GRID_SIZE):
@@ -205,21 +214,32 @@ func update_viewboard_tiles():
 			var wx = vx + world_offset_x
 			var wy = vy + world_offset_y
 
-			if wx < 0 or wx >= WORLD_WIDTH or wy < 0 or wy >= WORLD_HEIGHT:
-				tile_sprites[vx][vy].visible = false
-				continue
-
 			var sprite = tile_sprites[vx][vy]
-			sprite.visible = true
-
-			var terrain_type = terrain_map[wx][wy]
-			var elevation = elevation_map[wx][wy]
-			sprite.texture = tile_textures[terrain_type]
-
-			var screen_pos = viewboard_to_screen_coords(vx, vy)
-			var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
-			sprite.position = screen_pos + screen_offset
-			sprite.position.y -= elevation * 6
+			if wx < 0 or wx >= WORLD_WIDTH or wy < 0 or wy >= WORLD_HEIGHT:
+				sprite.texture = tile_textures["border"]
+				sprite.visible = true
+				# Scale border sprite
+				var tex_size = sprite.texture.get_size()
+				if tex_size.x > 0 and tex_size.y > 0:
+					sprite.scale = Vector2(TILE_WIDTH / tex_size.x, TILE_WIDTH / tex_size.y)
+				# Position
+				var screen_pos = viewboard_to_screen_coords(vx, vy)
+				var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
+				sprite.position = screen_pos + screen_offset
+			else:
+				sprite.visible = true
+				var terrain_type = terrain_map[wx][wy]
+				var elevation = elevation_map[wx][wy]
+				sprite.texture = tile_textures[terrain_type]
+				# Scale
+				var tex_size = sprite.texture.get_size()
+				if tex_size.x > 0 and tex_size.y > 0:
+					sprite.scale = Vector2(TILE_WIDTH / tex_size.x, TILE_WIDTH / tex_size.y)
+				# Position
+				var screen_pos = viewboard_to_screen_coords(vx, vy)
+				var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
+				sprite.position = screen_pos + screen_offset
+				sprite.position.y -= elevation * 6
 
 func update_nomino_positions():
 	for n in nominos:
@@ -251,9 +271,9 @@ func update_nomino_positions():
 				sprite2d.scale = Vector2(TILE_WIDTH / tex_size.x, TILE_WIDTH / tex_size.y)
 
 func move_viewboard(dx, dy):
-	# Clamp the new offsets to prevent scrolling past world bounds
-	var new_offset_x = clamp(world_offset_x + dx, 0, WORLD_WIDTH - GRID_SIZE)
-	var new_offset_y = clamp(world_offset_y + dy, 0, WORLD_HEIGHT - GRID_SIZE)
+	# Allow scrolling one step past the world bounds for border display
+	var new_offset_x = clamp(world_offset_x + dx, -1, WORLD_WIDTH - GRID_SIZE + 1)
+	var new_offset_y = clamp(world_offset_y + dy, -1, WORLD_HEIGHT - GRID_SIZE + 1)
 	if new_offset_x == world_offset_x and new_offset_y == world_offset_y:
 		return # No movement if already at edge
 	world_offset_x = new_offset_x
