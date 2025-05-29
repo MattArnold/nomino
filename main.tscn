@@ -1,0 +1,37 @@
+[gd_scene load_steps=5 format=3 uid="uid://brot7nvphv6kv"]
+
+[ext_resource type="Texture2D" uid="uid://b2oecii8wnk47" path="res://assets/background.png" id="1_0xm2m"]
+[ext_resource type="Script" uid="uid://kakphgngqhxw" path="res://root2d.gd" id="1_h2yge"]
+[ext_resource type="PackedScene" uid="uid://tpaqs42k5jld" path="res://game_world.tscn" id="2_h2yge"]
+[ext_resource type="Script" uid="uid://d4de88rder8h3" path="res://viewboard_controls.gd" id="4_1bvp3"]
+
+[node name="Root2D" type="Node2D"]
+script = ExtResource("1_h2yge")
+
+[node name="BackgroundLayer" type="CanvasLayer" parent="."]
+layer = -1
+
+[node name="TextureRect" type="TextureRect" parent="BackgroundLayer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("1_0xm2m")
+stretch_mode = 6
+
+[node name="GameWorld" parent="." instance=ExtResource("2_h2yge")]
+
+[node name="HUDLayer" type="CanvasLayer" parent="."]
+
+[node name="ViewboardControls" type="Control" parent="HUDLayer"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("4_1bvp3")
+
+[editable path="GameWorld"]

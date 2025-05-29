@@ -1,0 +1,166 @@
+extends Control
+
+@onready var game_world_manager = get_node("../../GameWorld/GameWorldManager")
+
+var pad_input := Vector2.ZERO
+
+func _ready():
+	create_viewboard_controls_container()
+	connect_buttons()
+	responsive_hud_scale()
+
+func create_viewboard_controls_container():
+	var container = Control.new()
+	container.custom_minimum_size = Vector2(200, 48)
+	container.name = "ViewboardControlsContainer"
+	container.anchor_top = 0.02
+	container.anchor_left = 0.63
+	add_child(container)
+
+	create_scroll_pad(container)
+	create_zoom_pad(container)
+
+# Buttons that scroll the view of the world north/south/east/west
+func create_scroll_pad(container: Control):
+	# Scaling is handled responsively in responsive_hud_scale()
+	var pad = Control.new()
+	pad.name = "ScrollPad"
+	pad.anchor_left = 0.9
+	pad.offset_top = 0
+	container.add_child(pad)
+
+	# NESW scroll directional pad background image
+	var bg = TextureRect.new()
+	bg.name = "ButtonsImage"
+	bg.texture = preload("res://assets/viewboard-buttons-image.png")
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bg.z_index = 1
+	pad.add_child(bg)
+
+	# Directional buttons
+	# Top-left: West
+	var btn_w = Button.new()
+	btn_w.name = "ButtonWest"
+	btn_w.custom_minimum_size = Vector2(48, 48)
+	btn_w.offset_left = 0
+	btn_w.offset_top = 0
+	btn_w.z_index = 0
+	pad.add_child(btn_w)
+
+	# Top-right: North
+	var btn_n = Button.new()
+	btn_n.name = "ButtonNorth"
+	btn_n.custom_minimum_size = Vector2(48, 48)
+	btn_n.offset_left = 50
+	btn_n.offset_top = 0
+	btn_n.z_index = 0
+	pad.add_child(btn_n)
+
+	# Bottom-left: South
+	var btn_s = Button.new()
+	btn_s.name = "ButtonSouth"
+	btn_s.custom_minimum_size = Vector2(48, 48)
+	btn_s.offset_left = 0
+	btn_s.offset_top = 50
+	btn_s.z_index = 0
+	pad.add_child(btn_s)
+
+	# Bottom-right: East
+	var btn_e = Button.new()
+	btn_e.name = "ButtonEast"
+	btn_e.custom_minimum_size = Vector2(48, 48)
+	btn_e.offset_left = 50
+	btn_e.offset_top = 50
+	btn_e.z_index = 0
+	pad.add_child(btn_e)
+
+# Buttons that zoom in and out on the view of the world
+func create_zoom_pad(container: Control):
+	# Scaling is handled responsively in responsive_hud_scale()
+	var pad = Control.new()
+	pad.name = "ZoomPad"
+	pad.anchor_left = 0.64
+	container.add_child(pad)
+
+	# background image of Zoom pad
+	var bg = TextureRect.new()
+	bg.name = "ButtonsImage"
+	bg.texture = preload("res://assets/zoom-buttons-image.png")
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bg.z_index = 1
+	bg.offset_left = 5
+	bg.offset_top = 9
+	pad.add_child(bg)
+
+	# Zoom buttons
+	var btn_zoom_in = Button.new()
+	btn_zoom_in.name = "ButtonZoomIn"
+	btn_zoom_in.custom_minimum_size = Vector2(48, 48)
+	pad.add_child(btn_zoom_in)
+
+	var btn_zoom_out = Button.new()
+	btn_zoom_out.name = "ButtonZoomOut"
+	btn_zoom_out.custom_minimum_size = Vector2(48, 48)
+	btn_zoom_out.offset_top = 50
+	pad.add_child(btn_zoom_out)
+
+func connect_buttons():
+	var scroll_pad = get_node("ViewboardControlsContainer/ScrollPad")
+
+	scroll_pad.get_node("ButtonNorth").button_down.connect(func(): game_world_manager.current_viewboard_input = Vector2(0, -1))
+	scroll_pad.get_node("ButtonNorth").button_up.connect(func(): game_world_manager.current_viewboard_input = Vector2.ZERO)
+
+	scroll_pad.get_node("ButtonSouth").button_down.connect(func(): game_world_manager.current_viewboard_input = Vector2(0, 1))
+	scroll_pad.get_node("ButtonSouth").button_up.connect(func(): game_world_manager.current_viewboard_input = Vector2.ZERO)
+
+	scroll_pad.get_node("ButtonWest").button_down.connect(func(): game_world_manager.current_viewboard_input = Vector2(-1, 0))
+	scroll_pad.get_node("ButtonWest").button_up.connect(func(): game_world_manager.current_viewboard_input = Vector2.ZERO)
+
+	scroll_pad.get_node("ButtonEast").button_down.connect(func(): game_world_manager.current_viewboard_input = Vector2(1, 0))
+	scroll_pad.get_node("ButtonEast").button_up.connect(func(): game_world_manager.current_viewboard_input = Vector2.ZERO)
+
+	# connect the scroll pad to the "w", "a", "s", and "d" keys for movement
+	InputMap.add_action("ScrollNorth")
+	InputMap.add_action("ScrollSouth")
+	InputMap.add_action("ScrollWest")
+	InputMap.add_action("ScrollEast")
+
+	var zoom_pad = get_node("ViewboardControlsContainer/ZoomPad")
+
+	zoom_pad.get_node("ButtonZoomIn").pressed.connect(func(): game_world_manager.zoom_in())
+	zoom_pad.get_node("ButtonZoomOut").pressed.connect(func(): game_world_manager.zoom_out())
+
+	# connect the zoom pad to the "q" and "e" keys for zooming
+	InputMap.add_action("ZoomIn")
+	InputMap.add_action("ZoomOut")
+	var zoom_in_event = InputEventKey.new()
+	zoom_in_event.keycode = KEY_Q
+	InputMap.action_add_event("ZoomIn", zoom_in_event)
+
+	var zoom_out_event = InputEventKey.new()
+	zoom_out_event.keycode = KEY_E
+	InputMap.action_add_event("ZoomOut", zoom_out_event)
+
+func responsive_hud_scale():
+	var screen_size = get_viewport_rect().size
+	var scale_factor = screen_size.x / 768.0
+	scale_factor = clamp(scale_factor, 0.5, 1.5)
+
+	var container = get_node_or_null("ViewboardControlsContainer")
+	var scroll_pad = get_node_or_null("ViewboardControlsContainer/ScrollPad")
+	var zoom_pad = get_node_or_null("ViewboardControlsContainer/ZoomPad")
+
+	if container:
+		container.scale = Vector2(scale_factor, scale_factor)
+
+	if scroll_pad:
+		scroll_pad.scale = Vector2(scale_factor, scale_factor)
+
+	if zoom_pad:
+		zoom_pad.scale = Vector2(scale_factor, scale_factor)
+
+func _input(event):
+	if event.is_action_pressed("ZoomIn"):
+		game_world_manager.zoom_in()
+	elif event.is_action_pressed("ZoomOut"):
+		game_world_manager.zoom_out()
