@@ -5,5 +5,4 @@
 [node name="Nomino" type="Node2D"]
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
-scale = Vector2(0.05, 0.05)
 texture = ExtResource("1_jthj5")

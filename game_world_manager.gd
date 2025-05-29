@@ -243,6 +243,13 @@ func update_nomino_positions():
 		n["node"].z_index = 1000 + world_y
 		n["node"].visible = true
 
+		# --- Ensure nomino sprite scales with zoom ---
+		var sprite2d = n["node"].get_node_or_null("Sprite2D")
+		if sprite2d and sprite2d.texture:
+			var tex_size = sprite2d.texture.get_size()
+			if tex_size.x > 0 and tex_size.y > 0:
+				sprite2d.scale = Vector2(TILE_WIDTH / tex_size.x, TILE_WIDTH / tex_size.y)
+
 func move_viewboard(dx, dy):
 	world_offset_x += dx
 	world_offset_y += dy
@@ -310,6 +317,14 @@ func place_nomino(n: Dictionary) -> void:
 
 	# Create the Nomino sprite and add to NominoLayer
 	var sprite = preload("res://nomino.tscn").instantiate()
+
+	var sprite2d = sprite.get_node_or_null("Sprite2D")
+	if sprite2d and sprite2d.texture:
+		sprite2d.scale = Vector2.ONE
+		var tex_size = sprite2d.texture.get_size()
+		if tex_size.x > 0 and tex_size.y > 0:
+			sprite2d.scale = Vector2(TILE_WIDTH / tex_size.x, TILE_WIDTH / tex_size.y)
+
 	var screen_pos = viewboard_to_screen_coords(viewboard_x - 1, viewboard_y - 1)
 	var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
 	sprite.position = screen_pos + screen_offset
