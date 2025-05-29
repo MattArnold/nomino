@@ -251,10 +251,19 @@ func update_nomino_positions():
 				sprite2d.scale = Vector2(TILE_WIDTH / tex_size.x, TILE_WIDTH / tex_size.y)
 
 func move_viewboard(dx, dy):
-	world_offset_x += dx
-	world_offset_y += dy
+	# Clamp the new offsets to prevent scrolling past world bounds
+	var new_offset_x = clamp(world_offset_x + dx, 0, WORLD_WIDTH - GRID_SIZE)
+	var new_offset_y = clamp(world_offset_y + dy, 0, WORLD_HEIGHT - GRID_SIZE)
+	if new_offset_x == world_offset_x and new_offset_y == world_offset_y:
+		return # No movement if already at edge
+	world_offset_x = new_offset_x
+	world_offset_y = new_offset_y
 	update_viewboard_tiles()
 	update_nomino_positions()
+	# Notify controls to update button states
+	var controls = get_tree().get_root().find_child("ViewboardControls", true, false)
+	if controls and controls.has_method("update_scroll_buttons"):
+		controls.update_scroll_buttons()
 
 func _process(delta):
 	var input = Vector2.ZERO

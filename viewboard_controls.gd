@@ -8,6 +8,7 @@ func _ready():
 	create_viewboard_controls_container()
 	connect_buttons()
 	responsive_hud_scale()
+	update_scroll_buttons()
 
 func create_viewboard_controls_container():
 	var container = Control.new()
@@ -107,16 +108,28 @@ func create_zoom_pad(container: Control):
 func connect_buttons():
 	var scroll_pad = get_node("ViewboardControlsContainer/ScrollPad")
 
-	scroll_pad.get_node("ButtonNorth").button_down.connect(func(): game_world_manager.current_viewboard_input = Vector2(0, -1))
+	scroll_pad.get_node("ButtonNorth").button_down.connect(func():
+		game_world_manager.current_viewboard_input = Vector2(0, -1)
+		update_scroll_buttons()
+	)
 	scroll_pad.get_node("ButtonNorth").button_up.connect(func(): game_world_manager.current_viewboard_input = Vector2.ZERO)
 
-	scroll_pad.get_node("ButtonSouth").button_down.connect(func(): game_world_manager.current_viewboard_input = Vector2(0, 1))
+	scroll_pad.get_node("ButtonSouth").button_down.connect(func():
+		game_world_manager.current_viewboard_input = Vector2(0, 1)
+		update_scroll_buttons()
+	)
 	scroll_pad.get_node("ButtonSouth").button_up.connect(func(): game_world_manager.current_viewboard_input = Vector2.ZERO)
 
-	scroll_pad.get_node("ButtonWest").button_down.connect(func(): game_world_manager.current_viewboard_input = Vector2(-1, 0))
+	scroll_pad.get_node("ButtonWest").button_down.connect(func():
+		game_world_manager.current_viewboard_input = Vector2(-1, 0)
+		update_scroll_buttons()
+	)
 	scroll_pad.get_node("ButtonWest").button_up.connect(func(): game_world_manager.current_viewboard_input = Vector2.ZERO)
 
-	scroll_pad.get_node("ButtonEast").button_down.connect(func(): game_world_manager.current_viewboard_input = Vector2(1, 0))
+	scroll_pad.get_node("ButtonEast").button_down.connect(func():
+		game_world_manager.current_viewboard_input = Vector2(1, 0)
+		update_scroll_buttons()
+	)
 	scroll_pad.get_node("ButtonEast").button_up.connect(func(): game_world_manager.current_viewboard_input = Vector2.ZERO)
 
 	# connect the scroll pad to the "w", "a", "s", and "d" keys for movement
@@ -159,8 +172,26 @@ func responsive_hud_scale():
 	if zoom_pad:
 		zoom_pad.scale = Vector2(scale_factor, scale_factor)
 
+func update_scroll_buttons():
+	var scroll_pad = get_node_or_null("ViewboardControlsContainer/ScrollPad")
+	if not scroll_pad or not game_world_manager:
+		return
+
+	# Check if scrolling in each direction is possible
+	var can_north = game_world_manager.world_offset_y > 0
+	var can_south = game_world_manager.world_offset_y < game_world_manager.WORLD_HEIGHT - game_world_manager.GRID_SIZE
+	var can_west = game_world_manager.world_offset_x > 0
+	var can_east = game_world_manager.world_offset_x < game_world_manager.WORLD_WIDTH - game_world_manager.GRID_SIZE
+
+	scroll_pad.get_node("ButtonNorth").disabled = not can_north
+	scroll_pad.get_node("ButtonSouth").disabled = not can_south
+	scroll_pad.get_node("ButtonWest").disabled = not can_west
+	scroll_pad.get_node("ButtonEast").disabled = not can_east
+
 func _input(event):
 	if event.is_action_pressed("ZoomIn"):
 		game_world_manager.zoom_in()
 	elif event.is_action_pressed("ZoomOut"):
 		game_world_manager.zoom_out()
+	# Update scroll buttons on any input
+	update_scroll_buttons()
