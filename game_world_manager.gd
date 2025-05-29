@@ -236,7 +236,7 @@ func update_nomino_positions():
 			n["node"].visible = false
 			continue
 
-		var screen_pos = viewboard_to_screen_coords(viewboard_x, viewboard_y)
+		var screen_pos = viewboard_to_screen_coords(viewboard_x - 1, viewboard_y - 1)
 		var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
 		n["node"].position = screen_pos + screen_offset
 		n["node"].position.y -= elevation_map[world_x][world_y] * 6
@@ -308,37 +308,19 @@ func place_nomino(n: Dictionary) -> void:
 	var viewboard_x = world_x - world_offset_x
 	var viewboard_y = world_y - world_offset_y
 
-	# Only place Nomino if it should be visible
+	# Create the Nomino sprite and add to NominoLayer
+	var sprite = preload("res://nomino.tscn").instantiate()
+	var screen_pos = viewboard_to_screen_coords(viewboard_x - 1, viewboard_y - 1)
+	var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
+	sprite.position = screen_pos + screen_offset
+	sprite.position.y -= elevation_map[world_x][world_y] * 6
+	sprite.z_index = 1000 + world_y # ensure above tiles
+	get_node("NominoLayer").add_child(sprite)
+
+	# Set visibility based on whether the nomino is in the viewboard
 	if viewboard_x >= 0 and viewboard_x < GRID_SIZE and viewboard_y >= 0 and viewboard_y < GRID_SIZE:
-		var sprite = preload("res://nomino.tscn").instantiate()
-		var screen_pos = viewboard_to_screen_coords(viewboard_x, viewboard_y)
-		var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
-		sprite.position = screen_pos + screen_offset
-		sprite.position.y -= elevation_map[world_x][world_y] * 6
-		sprite.z_index = 1000 + world_y # ensure above tiles
-		# Always add to NominoLayer (guaranteed to exist)
-		get_node("NominoLayer").add_child(sprite)
-		n["node"] = sprite
+		sprite.visible = true
 	else:
-		n["node"] = null
+		sprite.visible = false
 
-# --- ZOOM IN/OUT: Adjust GRID_SIZE and recalculate tile sizes ---
-func zoom_in():
-	# Show more tiles (smaller tiles)
-	if GRID_SIZE > 6:
-		GRID_SIZE -= 1
-		TILE_WIDTH = VIEWBOARD_PIXEL_WIDTH / GRID_SIZE
-		TILE_HEIGHT = TILE_WIDTH / 2
-		place_tiles()
-		update_viewboard_tiles()
-		update_nomino_positions()
-
-func zoom_out():
-	# Show fewer tiles (larger tiles)
-	if GRID_SIZE < 14:
-		GRID_SIZE += 1
-		TILE_WIDTH = VIEWBOARD_PIXEL_WIDTH / GRID_SIZE
-		TILE_HEIGHT = TILE_WIDTH / 2
-		place_tiles()
-		update_viewboard_tiles()
-		update_nomino_positions()
+	n["node"] = sprite
