@@ -326,10 +326,15 @@ func spawn_nominos():
 	var nomino_layer = Node2D.new()
 	nomino_layer.name = "NominoLayer"
 	add_child(nomino_layer)
-	for i in range(2):
-		var x = randi_range(0, WORLD_WIDTH - 1)
-		var y = randi_range(0, WORLD_HEIGHT - 1)
-		var pos = Vector2i(x, y)
+
+	# --- Ensure unique positions for each nomino ---
+	var all_positions = []
+	for x in range(WORLD_WIDTH):
+		for y in range(WORLD_HEIGHT):
+			all_positions.append(Vector2i(x, y))
+	all_positions.shuffle()
+	for i in range(24):
+		var pos = all_positions[i]
 		var n = { "pos": pos, "node": null }
 		nominos.append(n)
 		place_nomino(n)
