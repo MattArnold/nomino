@@ -324,3 +324,24 @@ func place_nomino(n: Dictionary) -> void:
 		sprite.visible = false
 
 	n["node"] = sprite
+
+# --- ZOOM IN/OUT: Adjust GRID_SIZE and recalculate tile sizes ---
+func zoom_in():
+	# Show more tiles (smaller tiles)
+	if GRID_SIZE < 24:
+		GRID_SIZE += 1
+		TILE_WIDTH = VIEWBOARD_PIXEL_WIDTH / GRID_SIZE
+		TILE_HEIGHT = TILE_WIDTH / 2
+		place_tiles()
+		update_viewboard_tiles()
+		update_nomino_positions()
+
+func zoom_out():
+	# Show fewer tiles (larger tiles)
+	if GRID_SIZE > 6:
+		GRID_SIZE -= 1
+		TILE_WIDTH = VIEWBOARD_PIXEL_WIDTH / GRID_SIZE
+		TILE_HEIGHT = TILE_WIDTH / 2
+		place_tiles()
+		update_viewboard_tiles()
+		update_nomino_positions()
