@@ -41,6 +41,11 @@ var tile_textures = {
 
 func _ready():
 	randomize()
+	# Add a dedicated NominoLayer for nomino sprites
+	if not has_node("NominoLayer"):
+		var nomino_layer = Node2D.new()
+		nomino_layer.name = "NominoLayer"
+		add_child(nomino_layer)
 	# Configure noise generators
 	terrain_noise.noise_type = 0
 	terrain_noise.seed = randi()
@@ -57,7 +62,7 @@ func _ready():
 func distribute_terrain():
 	terrain_map = []
 	tile_sprites = []
-	var tiles_created = 0
+	var _tiles_created = 0
 	elevation_map = []
 
 	for x in range(WORLD_WIDTH):
@@ -235,6 +240,7 @@ func update_nomino_positions():
 		var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
 		n["node"].position = screen_pos + screen_offset
 		n["node"].position.y -= elevation_map[world_x][world_y] * 6
+		n["node"].z_index = 1000 + world_y
 		n["node"].visible = true
 
 func move_viewboard(dx, dy):
@@ -274,6 +280,24 @@ func _process(delta):
 
 	previous_input = input
 
+func spawn_nominos():
+	nominos.clear() # Clear any previous nominos
+	# Remove and recreate NominoLayer cleanly
+	if has_node("NominoLayer"):
+		var old_layer = get_node("NominoLayer")
+		remove_child(old_layer)
+		old_layer.queue_free()
+	var nomino_layer = Node2D.new()
+	nomino_layer.name = "NominoLayer"
+	add_child(nomino_layer)
+	for i in range(2):
+		var x = randi_range(0, WORLD_WIDTH - 1)
+		var y = randi_range(0, WORLD_HEIGHT - 1)
+		var pos = Vector2i(x, y)
+		var n = { "pos": pos, "node": null }
+		nominos.append(n)
+		place_nomino(n)
+
 func place_nomino(n: Dictionary) -> void:
 	# Delete existing node if present and still in scene tree
 	if n.has("node") and n["node"] and is_instance_valid(n["node"]):
@@ -286,45 +310,14 @@ func place_nomino(n: Dictionary) -> void:
 
 	# Only place Nomino if it should be visible
 	if viewboard_x >= 0 and viewboard_x < GRID_SIZE and viewboard_y >= 0 and viewboard_y < GRID_SIZE:
-		print('place_nomino')
 		var sprite = preload("res://nomino.tscn").instantiate()
 		var screen_pos = viewboard_to_screen_coords(viewboard_x, viewboard_y)
 		var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
 		sprite.position = screen_pos + screen_offset
 		sprite.position.y -= elevation_map[world_x][world_y] * 6
-		sprite.z_index = world_y
-		add_child(sprite)
+		sprite.z_index = 1000 + world_y # ensure above tiles
+		# Always add to NominoLayer (guaranteed to exist)
+		get_node("NominoLayer").add_child(sprite)
 		n["node"] = sprite
-		print('add_child ', n)
-		print('sprite ', sprite)
 	else:
 		n["node"] = null
-
-func spawn_nominos():
-	for i in range(2):
-		var x = randi_range(0, WORLD_WIDTH - 1)
-		var y = randi_range(0, WORLD_HEIGHT - 1)
-		var pos = Vector2i(x, y)
-
-		var n = { "pos": pos, "node": null }
-		nominos.append(n)
-		print(n)
-		place_nomino(n)
-
-func zoom_in():
-	if GRID_SIZE > 8:
-		GRID_SIZE -= 1
-		rebuild_grid()
-
-func zoom_out():
-	if GRID_SIZE < 14:
-		GRID_SIZE += 1
-		rebuild_grid()
-
-func rebuild_grid():
-	TILE_WIDTH = (2.0 * VIEWBOARD_PIXEL_WIDTH) / (2 * GRID_SIZE - 1)
-	TILE_HEIGHT = TILE_WIDTH / 2.0
-	for child in get_children():
-		remove_child(child)
-		child.queue_free()
-	place_tiles()
