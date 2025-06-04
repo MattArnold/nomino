@@ -1,8 +1,10 @@
-[gd_scene load_steps=2 format=3 uid="uid://cm3r7mrxesoa7"]
+[gd_scene load_steps=3 format=3 uid="uid://cm3r7mrxesoa7"]
 
+[ext_resource type="Script" uid="uid://mfffyg2de20f" path="res://nomino.gd" id="1_hithf"]
 [ext_resource type="Texture2D" uid="uid://jxolnmxqnqif" path="res://assets/sprites/nomino0.png" id="1_jthj5"]
 
 [node name="Nomino" type="Node2D"]
+script = ExtResource("1_hithf")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 texture = ExtResource("1_jthj5")

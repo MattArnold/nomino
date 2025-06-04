@@ -336,6 +336,14 @@ func spawn_nominos():
 	for i in range(24):
 		var pos = all_positions[i]
 		var n = { "pos": pos, "node": null }
+		# Assign a random movement pattern for demonstration; replace with your logic as needed
+		var move_patterns = ["orthostep", "diagstep", "orthojump", "diagjump", "clockwiseknight", "counterknight"]
+		var num_types = randi() % 2 + 1  # Each Nomino gets 1 or 2 move types
+		n["move_types"] = []
+		for j in range(num_types):
+			var t = move_patterns[randi() % move_patterns.size()]
+			if t not in n["move_types"]:
+				n["move_types"].append(t)
 		nominos.append(n)
 		place_nomino(n)
 
