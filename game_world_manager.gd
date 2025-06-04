@@ -7,7 +7,7 @@ const WORLD_HEIGHT = 64
 # Grid configuration
 const SEA_LEVEL = -0.5
 const VIEWBOARD_PIXEL_WIDTH := 768.0
-var GRID_SIZE = 12  # Number of tiles along each edge of the viewboard
+var GRID_SIZE = DEFAULT_GRID_SIZE  # Number of tiles along each edge of the viewboard
 var TILE_WIDTH = VIEWBOARD_PIXEL_WIDTH / GRID_SIZE  # Width of each tile in pixels
 var TILE_HEIGHT = TILE_WIDTH / 2  # Height of each tile in pixels (half of width for isometric)
 
@@ -40,6 +40,9 @@ var tile_textures = {
 	"border": preload("res://assets/tiles/border_cube.png"), # Added border texture
 }
 
+const NUM_NOMINOS = 24 # Number of Nominos to spawn
+const DEFAULT_GRID_SIZE = 12 # Default number of tiles along each edge of the viewboard
+
 func _ready():
 	randomize()
 	# Add a dedicated NominoLayer for nomino sprites
@@ -47,12 +50,12 @@ func _ready():
 		var nomino_layer = Node2D.new()
 		nomino_layer.name = "NominoLayer"
 		add_child(nomino_layer)
-	# The desired noise type is Open Simplex 2, which is 0
+	# The desired noise type is Open Simplex 2, which is 0.
 	terrain_noise.noise_type = 0
 	terrain_noise.seed = randi()
 	terrain_noise.frequency = 1  # controls patch size
 
-	# The desired noise type is Open Simplex 2, which is 0
+	# The desired noise type is Open Simplex 2, which is 0.
 	elevation_noise.noise_type = 0
 	elevation_noise.seed = randi()
 	elevation_noise.frequency = 0.1
@@ -172,6 +175,8 @@ func create_tile_sprite(wx, wy):
 
 	return sprite
 
+# Converts viewboard grid coordinates (0..GRID_SIZE-1) to screen pixel coordinates for isometric rendering.
+# The resulting Vector2 is the pixel position on screen for the top-left corner of the tile at (viewboard_x, viewboard_y).
 func viewboard_to_screen_coords(viewboard_x, viewboard_y):
 	# Convert viewboard grid coordinates to screen pixel coordinates
 	# This creates the isometric diamond pattern
@@ -179,6 +184,8 @@ func viewboard_to_screen_coords(viewboard_x, viewboard_y):
 	var screen_y = (viewboard_x + viewboard_y) * (TILE_HEIGHT / 2)
 	return Vector2(screen_x, screen_y)
 
+# Converts a screen pixel position (relative to the viewboard origin) back to viewboard grid coordinates.
+# Returns a Vector2 of (viewboard_x, viewboard_y), rounded to the nearest integer grid cell.
 func screen_to_viewboard_coords(screen_pos):
 	# Convert screen pixel coordinates back to viewboard grid coordinates
 	# This reverses the isometric transformation
@@ -191,9 +198,13 @@ func screen_to_viewboard_coords(screen_pos):
 
 	return Vector2(viewboard_x, viewboard_y)
 
+# Converts viewboard grid coordinates to world coordinates (absolute position in the game world).
+# Returns a Vector2 of (world_x, world_y).
 func viewboard_to_world_coords(viewboard_x, viewboard_y):
 	return Vector2(viewboard_x + world_offset_x, viewboard_y + world_offset_y)
 
+# Converts world coordinates to viewboard grid coordinates (relative to the current viewboard offset).
+# Returns a Vector2 of (viewboard_x, viewboard_y).
 func world_to_viewboard_coords(world_x, world_y):
 	return Vector2(world_x - world_offset_x, world_y - world_offset_y)
 
@@ -244,12 +255,18 @@ func update_viewboard_tiles():
 func update_nomino_positions():
 	for n in nominos:
 		if not is_instance_valid(n["node"]):
+			push_warning("update_nomino_positions: Nomino node is not valid.")
 			continue  # node has been freed or not created yet
 
 		var world_x = n.pos.x
 		var world_y = n.pos.y
 		var viewboard_x = world_x - world_offset_x
 		var viewboard_y = world_y - world_offset_y
+
+		# Error logging for out-of-bounds
+		if world_x < 0 or world_x >= WORLD_WIDTH or world_y < 0 or world_y >= WORLD_HEIGHT:
+			push_warning("update_nomino_positions: Nomino position out of world bounds: (" + str(world_x) + ", " + str(world_y) + ")")
+			continue
 
 		# Check if Nomino is in view
 		if viewboard_x < 0 or viewboard_x >= GRID_SIZE or viewboard_y < 0 or viewboard_y >= GRID_SIZE:
@@ -259,7 +276,10 @@ func update_nomino_positions():
 		var screen_pos = viewboard_to_screen_coords(viewboard_x - 1, viewboard_y - 1)
 		var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
 		n["node"].position = screen_pos + screen_offset
-		n["node"].position.y -= elevation_map[world_x][world_y] * 6
+		if world_x >= 0 and world_x < WORLD_WIDTH and world_y >= 0 and world_y < WORLD_HEIGHT:
+			n["node"].position.y -= elevation_map[world_x][world_y] * 6
+		else:
+			push_warning("update_nomino_positions: Elevation map out-of-bounds for (" + str(world_x) + ", " + str(world_y) + ")")
 		n["node"].z_index = 1000 + world_y
 		n["node"].visible = true
 
@@ -269,6 +289,8 @@ func update_nomino_positions():
 			var tex_size = sprite2d.texture.get_size()
 			if tex_size.x > 0 and tex_size.y > 0:
 				sprite2d.scale = Vector2(TILE_WIDTH / tex_size.x, TILE_WIDTH / tex_size.y)
+		else:
+			push_warning("update_nomino_positions: Sprite2D or its texture missing for Nomino node.")
 
 func move_viewboard(dx, dy):
 	# Allow scrolling one step past the world bounds for border display
@@ -316,6 +338,8 @@ func _process(delta):
 
 	previous_input = input
 
+# Spawns all Nominos at unique positions and assigns them random movement patterns.
+# Each Nomino is a dictionary with keys: 'pos' (Vector2i), 'node' (instance), and 'move_types' (Array of movement pattern names).
 func spawn_nominos():
 	nominos.clear() # Clear any previous nominos
 	# Remove and recreate NominoLayer cleanly
@@ -333,7 +357,7 @@ func spawn_nominos():
 		for y in range(WORLD_HEIGHT):
 			all_positions.append(Vector2i(x, y))
 	all_positions.shuffle()
-	for i in range(24):
+	for i in range(NUM_NOMINOS):
 		var pos = all_positions[i]
 		var n = { "pos": pos, "node": null }
 		# Assign a random movement pattern for demonstration; replace with your logic as needed
@@ -347,6 +371,8 @@ func spawn_nominos():
 		nominos.append(n)
 		place_nomino(n)
 
+# Places a Nomino instance in the scene at its world position, updating its sprite and visibility.
+# Handles freeing any previous node instance for this Nomino.
 func place_nomino(n: Dictionary) -> void:
 	# Delete existing node if present and still in scene tree
 	if n.has("node") and n["node"] and is_instance_valid(n["node"]):
@@ -357,11 +383,22 @@ func place_nomino(n: Dictionary) -> void:
 	var viewboard_x = world_x - world_offset_x
 	var viewboard_y = world_y - world_offset_y
 
+	# Error logging for out-of-bounds access
+	if world_x < 0 or world_x >= WORLD_WIDTH or world_y < 0 or world_y >= WORLD_HEIGHT:
+		push_error("place_nomino: Nomino position out of world bounds: (" + str(world_x) + ", " + str(world_y) + ")")
+		return
+
 	# Create the Nomino sprite and add to NominoLayer
 	var sprite = preload("res://nomino.tscn").instantiate()
+	# Add to Nominos group for group management
+	sprite.add_to_group("Nominos")
 
 	var sprite2d = sprite.get_node_or_null("Sprite2D")
-	if sprite2d and sprite2d.texture:
+	if not sprite2d:
+		push_error("place_nomino: Sprite2D node missing in Nomino scene.")
+	elif not sprite2d.texture:
+		push_error("place_nomino: Sprite2D texture missing in Nomino scene.")
+	else:
 		sprite2d.scale = Vector2.ONE
 		var tex_size = sprite2d.texture.get_size()
 		if tex_size.x > 0 and tex_size.y > 0:
@@ -370,9 +407,16 @@ func place_nomino(n: Dictionary) -> void:
 	var screen_pos = viewboard_to_screen_coords(viewboard_x - 1, viewboard_y - 1)
 	var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
 	sprite.position = screen_pos + screen_offset
-	sprite.position.y -= elevation_map[world_x][world_y] * 6
+	if world_x >= 0 and world_x < WORLD_WIDTH and world_y >= 0 and world_y < WORLD_HEIGHT:
+		sprite.position.y -= elevation_map[world_x][world_y] * 6
+	else:
+		push_error("place_nomino: Elevation map out-of-bounds for (" + str(world_x) + ", " + str(world_y) + ")")
 	sprite.z_index = 1000 + world_y # ensure above tiles
-	get_node("NominoLayer").add_child(sprite)
+	var nomino_layer = get_node_or_null("NominoLayer")
+	if not nomino_layer:
+		push_error("place_nomino: NominoLayer node missing.")
+	else:
+		nomino_layer.add_child(sprite)
 
 	# Set visibility based on whether the nomino is in the viewboard
 	if viewboard_x >= 0 and viewboard_x < GRID_SIZE and viewboard_y >= 0 and viewboard_y < GRID_SIZE:
