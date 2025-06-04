@@ -398,11 +398,14 @@ func place_nomino(n):
 		return
 
 	# Create the Nomino sprite and add to NominoLayer
-	var sprite = preload("res://nomino.tscn").instantiate()
+	var sprite = NOMINO_SCENE.instantiate()
 	# Set species property before adding to scene
 	sprite.species = n.species
 	# Add to Nominos group for group management
 	sprite.add_to_group("Nominos")
+
+	# Connect the request_move signal to the world manager
+	sprite.request_move.connect(_on_nomino_request_move.bind(n))
 
 	var sprite2d = sprite.get_node_or_null("Sprite2D")
 	if not sprite2d:
@@ -436,6 +439,18 @@ func place_nomino(n):
 		sprite.visible = false
 
 	n.node = sprite
+
+# Handle move requests from Nomino nodes
+func _on_nomino_request_move(new_pos: Vector2i, n):
+	# Validate and apply the move for the NominoData instance n
+	var world_x = new_pos.x
+	var world_y = new_pos.y
+	# Check world bounds
+	if world_x < 0 or world_x >= WORLD_WIDTH or world_y < 0 or world_y >= WORLD_HEIGHT:
+		return # Ignore out-of-bounds moves
+	# Optionally, add more validation here (e.g., collision, terrain)
+	n.pos = new_pos
+	update_nomino_positions()
 
 # --- ZOOM IN/OUT: Adjust GRID_SIZE and recalculate tile sizes ---
 func zoom_in():

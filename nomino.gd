@@ -23,6 +23,9 @@ const SPECIES_HOP_TIME = {
 	"sue": 6.5
 }
 
+# Signal for requesting a move from the Nomino node
+signal request_move(new_pos: Vector2i)
+
 func _ready():
 	# Set timer wait_time and sprite based on species
 	var wait_time = SPECIES_HOP_TIME[species] if SPECIES_HOP_TIME.has(species) else 5.0
@@ -57,6 +60,17 @@ func _on_timer_timeout():
 	var tw = create_tween()
 	tw.tween_property(sprite, "position:y", sprite.position.y - jump_height, jump_duration).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	tw.tween_property(sprite, "position:y", 0, fall_duration).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+
+	# --- Nomino autonomous movement logic ---
+	# Pick a random move from move_types, if any
+	if move_types.size() > 0:
+		var move_pattern = move_types[randi() % move_types.size()]
+		if NOMINO_MOVES.has(move_pattern):
+			var options = NOMINO_MOVES[move_pattern]
+			var delta = options[randi() % options.size()]
+			# Request a move via signal (let world manager validate and apply)
+			var new_pos = Vector2i(int(position.x), int(position.y)) + Vector2i(int(delta.x), int(delta.y))
+			emit_signal("request_move", new_pos)
 
 const NOMINO_MOVES = {
 	"orthostep": [Vector2(0, -1), Vector2(-1, 0), Vector2(1, 0), Vector2(0, 1)],
