@@ -40,7 +40,14 @@ var tile_textures = {
 	"border": preload("res://assets/tiles/border_cube.png"), # Added border texture
 }
 
-const NUM_NOMINOS = 24 # Number of Nominos to spawn
+# Nomino sprite textures for random assignment
+const NOMINO_SPRITES = [
+	preload("res://assets/sprites/nomino0.png"),
+	preload("res://assets/sprites/nomino1.png"),
+	preload("res://assets/sprites/nomino2.png")
+]
+
+const NUM_NOMINOS = 48 # Number of Nominos to spawn
 const DEFAULT_GRID_SIZE = 12 # Default number of tiles along each edge of the viewboard
 
 func _ready():
@@ -50,13 +57,10 @@ func _ready():
 		var nomino_layer = Node2D.new()
 		nomino_layer.name = "NominoLayer"
 		add_child(nomino_layer)
-	# The desired noise type is Open Simplex 2, which is 0.
-	terrain_noise.noise_type = 0
+	# Set noise type for terrain_noise and elevation_noise in the Godot editor Inspector, not in code.
 	terrain_noise.seed = randi()
 	terrain_noise.frequency = 1  # controls patch size
 
-	# The desired noise type is Open Simplex 2, which is 0.
-	elevation_noise.noise_type = 0
 	elevation_noise.seed = randi()
 	elevation_noise.frequency = 0.1
 	distribute_terrain()
@@ -368,6 +372,9 @@ func spawn_nominos():
 			var t = move_patterns[randi() % move_patterns.size()]
 			if t not in n["move_types"]:
 				n["move_types"].append(t)
+		# Assign a random species
+		var species_names = ["poe", "taw", "sue"]
+		n["species"] = species_names[randi() % species_names.size()]
 		nominos.append(n)
 		place_nomino(n)
 
@@ -390,6 +397,9 @@ func place_nomino(n: Dictionary) -> void:
 
 	# Create the Nomino sprite and add to NominoLayer
 	var sprite = preload("res://nomino.tscn").instantiate()
+	# Set species property before adding to scene
+	if n.has("species"):
+		sprite.species = n["species"]
 	# Add to Nominos group for group management
 	sprite.add_to_group("Nominos")
 
@@ -399,6 +409,8 @@ func place_nomino(n: Dictionary) -> void:
 	elif not sprite2d.texture:
 		push_error("place_nomino: Sprite2D texture missing in Nomino scene.")
 	else:
+		# Randomize sprite texture assignment
+		sprite2d.texture = NOMINO_SPRITES[randi() % NOMINO_SPRITES.size()]
 		sprite2d.scale = Vector2.ONE
 		var tex_size = sprite2d.texture.get_size()
 		if tex_size.x > 0 and tex_size.y > 0:
