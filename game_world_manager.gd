@@ -258,37 +258,32 @@ func update_viewboard_tiles():
 
 func update_nomino_positions():
 	for n in nominos:
-		if not is_instance_valid(n["node"]):
+		if not is_instance_valid(n.node):
 			push_warning("update_nomino_positions: Nomino node is not valid.")
 			continue  # node has been freed or not created yet
-
 		var world_x = n.pos.x
 		var world_y = n.pos.y
 		var viewboard_x = world_x - world_offset_x
 		var viewboard_y = world_y - world_offset_y
-
 		# Error logging for out-of-bounds
 		if world_x < 0 or world_x >= WORLD_WIDTH or world_y < 0 or world_y >= WORLD_HEIGHT:
 			push_warning("update_nomino_positions: Nomino position out of world bounds: (" + str(world_x) + ", " + str(world_y) + ")")
 			continue
-
 		# Check if Nomino is in view
 		if viewboard_x < 0 or viewboard_x >= GRID_SIZE or viewboard_y < 0 or viewboard_y >= GRID_SIZE:
-			n["node"].visible = false
+			n.node.visible = false
 			continue
-
 		var screen_pos = viewboard_to_screen_coords(viewboard_x - 1, viewboard_y - 1)
 		var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
-		n["node"].position = screen_pos + screen_offset
+		n.node.position = screen_pos + screen_offset
 		if world_x >= 0 and world_x < WORLD_WIDTH and world_y >= 0 and world_y < WORLD_HEIGHT:
-			n["node"].position.y -= elevation_map[world_x][world_y] * 6
+			n.node.position.y -= elevation_map[world_x][world_y] * 6
 		else:
 			push_warning("update_nomino_positions: Elevation map out-of-bounds for (" + str(world_x) + ", " + str(world_y) + ")")
-		n["node"].z_index = 1000 + world_y
-		n["node"].visible = true
-
+		n.node.z_index = 1000 + world_y
+		n.node.visible = true
 		# --- Ensure nomino sprite scales with zoom ---
-		var sprite2d = n["node"].get_node_or_null("Sprite2D")
+		var sprite2d = n.node.get_node_or_null("Sprite2D")
 		if sprite2d and sprite2d.texture:
 			var tex_size = sprite2d.texture.get_size()
 			if tex_size.x > 0 and tex_size.y > 0:
@@ -363,27 +358,34 @@ func spawn_nominos():
 	all_positions.shuffle()
 	for i in range(NUM_NOMINOS):
 		var pos = all_positions[i]
-		var n = { "pos": pos, "node": null }
 		# Assign a random movement pattern for demonstration; replace with your logic as needed
 		var move_patterns = ["orthostep", "diagstep", "orthojump", "diagjump", "clockwiseknight", "counterknight"]
 		var num_types = randi() % 2 + 1  # Each Nomino gets 1 or 2 move types
-		n["move_types"] = []
+		var move_types = []
 		for j in range(num_types):
 			var t = move_patterns[randi() % move_patterns.size()]
-			if t not in n["move_types"]:
-				n["move_types"].append(t)
-		# Assign a random species
+			if t not in move_types:
+				move_types.append(t)
+		# Assign a random species name
 		var species_names = ["poe", "taw", "sue"]
-		n["species"] = species_names[randi() % species_names.size()]
-		nominos.append(n)
-		place_nomino(n)
+		var species = species_names[randi() % species_names.size()]
+		# Create NominoData instance and set properties
+		var nomino_data = NominoData.new()
+		nomino_data.pos = pos
+		# Assign move_types using add() to avoid type errors
+		for t in move_types:
+			nomino_data.move_types.append(str(t))
+		nomino_data.species = species
+		nominos.append(nomino_data)
+		place_nomino(nomino_data)
 
 # Places a Nomino instance in the scene at its world position, updating its sprite and visibility.
 # Handles freeing any previous node instance for this Nomino.
-func place_nomino(n: Dictionary) -> void:
+func place_nomino(n):
+	# n is now a NominoData instance
 	# Delete existing node if present and still in scene tree
-	if n.has("node") and n["node"] and is_instance_valid(n["node"]):
-		n["node"].queue_free()
+	if n.node and is_instance_valid(n.node):
+		n.node.queue_free()
 
 	var world_x = n.pos.x
 	var world_y = n.pos.y
@@ -398,8 +400,7 @@ func place_nomino(n: Dictionary) -> void:
 	# Create the Nomino sprite and add to NominoLayer
 	var sprite = preload("res://nomino.tscn").instantiate()
 	# Set species property before adding to scene
-	if n.has("species"):
-		sprite.species = n["species"]
+	sprite.species = n.species
 	# Add to Nominos group for group management
 	sprite.add_to_group("Nominos")
 
@@ -409,9 +410,7 @@ func place_nomino(n: Dictionary) -> void:
 	elif not sprite2d.texture:
 		push_error("place_nomino: Sprite2D texture missing in Nomino scene.")
 	else:
-		# Randomize sprite texture assignment
-		sprite2d.texture = NOMINO_SPRITES[randi() % NOMINO_SPRITES.size()]
-		sprite2d.scale = Vector2.ONE
+		# Sprite assignment is handled by nomino.gd via species
 		var tex_size = sprite2d.texture.get_size()
 		if tex_size.x > 0 and tex_size.y > 0:
 			sprite2d.scale = Vector2(TILE_WIDTH / tex_size.x, TILE_WIDTH / tex_size.y)
@@ -436,7 +435,7 @@ func place_nomino(n: Dictionary) -> void:
 	else:
 		sprite.visible = false
 
-	n["node"] = sprite
+	n.node = sprite
 
 # --- ZOOM IN/OUT: Adjust GRID_SIZE and recalculate tile sizes ---
 func zoom_in():
