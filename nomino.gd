@@ -26,6 +26,8 @@ const SPECIES_HOP_TIME = {
 # Signal for requesting a move from the Nomino node
 signal request_move(new_pos: Vector2i)
 
+var is_selected: bool = false
+
 func _ready():
 	# Set timer wait_time and sprite based on species
 	var wait_time = SPECIES_HOP_TIME[species] if SPECIES_HOP_TIME.has(species) else 5.0
@@ -49,6 +51,46 @@ func _ready():
 		sprite.texture = SPECIES_SPRITES[species]
 	else:
 		push_warning("Unknown species: %s. Using default sprite." % species)
+
+	# Enable input pick for selection
+	set_process_input(true)
+	if sprite:
+		sprite.modulate = Color(1, 1, 1, 1)
+		# Ensure Sprite2D receives input events (Godot 4)
+		# Use the value 2 for mouse_filter, as neither the string nor enum is available
+		sprite.set("mouse_filter", 2)
+
+	# Add to Nominos group for selection logic
+	add_to_group("Nominos")
+
+	# Add a CollisionShape2D for input hit detection if not present
+	if not has_node("CollisionShape2D"):
+		var collision_shape = CollisionShape2D.new()
+		var rect_shape = RectangleShape2D.new()
+		if sprite and sprite.texture:
+			var tex_size = sprite.texture.get_size()
+			rect_shape.size = tex_size
+		else:
+			rect_shape.size = Vector2(32, 32) # fallback size
+		collision_shape.shape = rect_shape
+		collision_shape.position = Vector2.ZERO
+		add_child(collision_shape)
+
+func _input_event(_viewport, event, _shape_idx):
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		# Deselect all Nominos first
+		for n in get_tree().get_nodes_in_group("Nominos"):
+			n.set_selected(false)
+		set_selected(true)
+
+func set_selected(selected: bool):
+	is_selected = selected
+	if sprite:
+		if selected:
+			print("Nomino selected: species=", species, " at pos=", position)
+			sprite.modulate = Color(1.5, 1.5, 1.5, 1) # Lighten
+		else:
+			sprite.modulate = Color(1, 1, 1, 1) # Normal
 
 func _on_timer_timeout():
 	# Animate jump: up then down, using cubic ease in/out
