@@ -215,13 +215,24 @@ func world_to_viewboard_coords(world_x, world_y):
 func _input(event):
 	# Handle mouse clicks on the grid
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var local_pos = to_local(event.position)
+		var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
+		var local_pos = to_local(event.position) - screen_offset
 		var viewboard_coords = screen_to_viewboard_coords(local_pos)
 
 		# Check if the click is within our grid bounds
 		if viewboard_coords.x >= 0 and viewboard_coords.x < GRID_SIZE and viewboard_coords.y >= 0 and viewboard_coords.y < GRID_SIZE:
 			var world_coords = viewboard_to_world_coords(viewboard_coords.x, viewboard_coords.y)
-			print("Clicked on viewboard (", viewboard_coords.x, ", ", viewboard_coords.y, ") = world (", world_coords.x, ", ", world_coords.y, ")") 
+			print("Clicked on viewboard (", viewboard_coords.x, ", ", viewboard_coords.y, ") = world (", world_coords.x, ", ", world_coords.y, ")")
+
+			for n in get_tree().get_nodes_in_group("Nominos"):
+				n.set_selected(false)
+
+			# Select the Nomino at this world position, if any
+			for n in nominos:
+				if n.pos.x == int(world_coords.x) and n.pos.y == int(world_coords.y):
+					if n.node:
+						n.node.set_selected(true)
+					break
 
 func update_viewboard_tiles():
 	for vx in range(GRID_SIZE):

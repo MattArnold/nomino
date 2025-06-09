@@ -75,6 +75,12 @@ func _ready():
 		collision_shape.shape = rect_shape
 		collision_shape.position = Vector2.ZERO
 		add_child(collision_shape)
+	# Assign RectangleShape2D to CollisionShape2D if not set in editor
+	var collision_shape = get_node_or_null("CollisionShape2D")
+	if collision_shape and not collision_shape.shape:
+		var rect_shape = RectangleShape2D.new()
+		rect_shape.extents = Vector2(32, 32)
+		collision_shape.shape = rect_shape
 
 func _input_event(_viewport, event, _shape_idx):
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
@@ -84,10 +90,12 @@ func _input_event(_viewport, event, _shape_idx):
 		set_selected(true)
 
 func set_selected(selected: bool):
+	# Only update if the value is actually changing
+	if is_selected == selected:
+		return
 	is_selected = selected
 	if sprite:
 		if selected:
-			print("Nomino selected: species=", species, " at pos=", position)
 			sprite.modulate = Color(1.5, 1.5, 1.5, 1) # Lighten
 		else:
 			sprite.modulate = Color(1, 1, 1, 1) # Normal

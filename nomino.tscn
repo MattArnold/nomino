@@ -8,3 +8,5 @@ script = ExtResource("1_hithf")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 texture = ExtResource("1_jthj5")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
