@@ -1,4 +1,4 @@
-extends Node2D
+extends Area2D
 #
 
 var move_types: Array[String] = []  # e.g. ["orthostep", "diagstep"]
@@ -28,6 +28,10 @@ signal request_move(new_pos: Vector2i)
 
 var is_selected: bool = false
 
+var collision_shape
+
+var current_selected_nomino: Area2D = null
+
 func _ready():
 	# Set timer wait_time and sprite based on species
 	var wait_time = SPECIES_HOP_TIME[species] if SPECIES_HOP_TIME.has(species) else 5.0
@@ -52,50 +56,54 @@ func _ready():
 	else:
 		push_warning("Unknown species: %s. Using default sprite." % species)
 
-	# Enable input pick for selection
-	set_process_input(true)
-	if sprite:
-		sprite.modulate = Color(1, 1, 1, 1)
-		# Ensure Sprite2D receives input events (Godot 4)
-		# Use the value 2 for mouse_filter, as neither the string nor enum is available
-		sprite.set("mouse_filter", 2)
-
 	# Add to Nominos group for selection logic
 	add_to_group("Nominos")
 
 	# Add a CollisionShape2D for input hit detection if not present
 	if not has_node("CollisionShape2D"):
-		var collision_shape = CollisionShape2D.new()
+		var new_collision_shape = CollisionShape2D.new()
 		var rect_shape = RectangleShape2D.new()
 		if sprite and sprite.texture:
 			var tex_size = sprite.texture.get_size()
 			rect_shape.size = tex_size
 		else:
 			rect_shape.size = Vector2(32, 32) # fallback size
-		collision_shape.shape = rect_shape
-		collision_shape.position = Vector2.ZERO
-		add_child(collision_shape)
+		new_collision_shape.shape = rect_shape
+		new_collision_shape.position = Vector2.ZERO
+		add_child(new_collision_shape)
 	# Assign RectangleShape2D to CollisionShape2D if not set in editor
-	var collision_shape = get_node_or_null("CollisionShape2D")
+	collision_shape = get_node_or_null("CollisionShape2D")
 	if collision_shape and not collision_shape.shape:
-		var rect_shape = RectangleShape2D.new()
-		rect_shape.extents = Vector2(32, 32)
-		collision_shape.shape = rect_shape
+		var new_rect_shape = RectangleShape2D.new()
+		new_rect_shape.extents = Vector2(32, 32)
+		collision_shape.shape = new_rect_shape
 
 func _input_event(_viewport, event, _shape_idx):
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		# Deselect all Nominos first
-		for n in get_tree().get_nodes_in_group("Nominos"):
-			n.set_selected(false)
 		set_selected(true)
+		print("DEBUG: Nomino sprite clicked and selected at pos=", position)
+		# event.consume() # Preferred in Godot 4.x, but if it fails, use the line below:
+		get_viewport().set_input_as_handled() # Fallback: prevent event from propagating to tile below
 
 func set_selected(selected: bool):
 	# Only update if the value is actually changing
 	if is_selected == selected:
 		return
+	if selected:
+		for n in get_tree().get_nodes_in_group("Nominos"):
+			if n != self:
+				n.set_selected(false)
 	is_selected = selected
+	if selected:
+		if current_selected_nomino and current_selected_nomino != self:
+			current_selected_nomino.set_selected(false)
+		current_selected_nomino = self
+	else:
+		if current_selected_nomino == self:
+			current_selected_nomino = null
 	if sprite:
 		if selected:
+			print("DEBUG: set_selected called, should lighten sprite")
 			sprite.modulate = Color(1.5, 1.5, 1.5, 1) # Lighten
 		else:
 			sprite.modulate = Color(1, 1, 1, 1) # Normal
@@ -130,3 +138,7 @@ const NOMINO_MOVES = {
 	"clockwiseknight": [Vector2(1, -2), Vector2(-2, -1), Vector2(2, 1), Vector2(2, -1)],
 	"counterknight": [Vector2(2, -1), Vector2(-2, -1), Vector2(2, 1), Vector2(-2, 1)],
 }
+
+func _input(event):
+	# print("DEBUG: _input called for ", self, " event=", event)
+	pass
