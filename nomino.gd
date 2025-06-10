@@ -18,9 +18,9 @@ const SPECIES_SPRITES = {
 
 # Hop timer for each species
 const SPECIES_HOP_TIME = {
-	"poe": 5.0,
-	"taw": 3.5,
-	"sue": 6.5
+	"poe": 2.0,
+	"taw": 3.0,
+	"sue": 4.0,
 }
 
 # Signal for requesting a move from the Nomino node
@@ -42,10 +42,10 @@ func _ready():
 	timer = Timer.new()
 	timer.wait_time = wait_time
 	timer.one_shot = false
-	timer.autostart = true
+	timer.autostart = false # Do not start yet
 	add_child(timer)
 	timer.timeout.connect(_on_timer_timeout)
-	timer.start()
+	# timer.start() # Do not start here
 
 	# Store original position for jump animation
 	original_position = position
@@ -81,7 +81,7 @@ func _ready():
 		collision_shape.shape = new_rect_shape
 
 	# Initialize world_pos from position (if needed, e.g. if placed by editor)
-	world_pos = Vector2i(int(position.x), int(position.y)) # TODO: Replace with actual world-to-screen conversion if needed
+	# world_pos = Vector2i(int(position.x), int(position.y)) # Disabled: world_pos is set by GameWorldManager
 
 	input_pickable = true
 	z_index = 1000
@@ -89,7 +89,6 @@ func _ready():
 func _input_event(_viewport, event, _shape_idx):
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		set_selected(true)
-		print("DEBUG: Nomino sprite clicked and selected at pos=", position)
 		var gwm = get_tree().get_root().find_child("GameWorldManager", true, false)
 		if gwm:
 			gwm.nomino_click_handled_this_frame = true
@@ -114,7 +113,6 @@ func set_selected(selected: bool):
 			current_selected_nomino = null
 	if sprite:
 		if selected:
-			print("DEBUG: set_selected called, should lighten sprite")
 			sprite.modulate = Color(1.5, 1.5, 1.5, 1) # Lighten
 		else:
 			sprite.modulate = Color(1, 1, 1, 1) # Normal
@@ -142,17 +140,19 @@ func _on_timer_timeout():
 			var options = NOMINO_MOVES[move_pattern]
 			var delta = options[randi() % options.size()]
 			# Compute new world position using world_pos, not screen position
-			var new_world_pos = world_pos + Vector2i(int(delta.x), int(delta.y))
+			var new_world_pos = world_pos + delta
 			# Request a move via signal (let world manager validate and apply)
 			emit_signal("request_move", new_world_pos)
+	else:
+		pass
 
 const NOMINO_MOVES = {
-	"orthostep": [Vector2(0, -1), Vector2(-1, 0), Vector2(1, 0), Vector2(0, 1)],
-	"diagstep": [Vector2(1, -1), Vector2(-1, -1), Vector2(1, 1), Vector2(-1, 1)],
-	"orthojump": [Vector2(0, -2), Vector2(-2, 0), Vector2(2, 0), Vector2(0, 2)],
-	"diagjump": [Vector2(2, -2), Vector2(-2, -2), Vector2(2, 2), Vector2(-2, 2)],
-	"clockwiseknight": [Vector2(1, -2), Vector2(-2, -1), Vector2(2, 1), Vector2(2, -1)],
-	"counterknight": [Vector2(2, -1), Vector2(-2, -1), Vector2(2, 1), Vector2(-2, 1)],
+	"orthostep": [Vector2i(0, -1), Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, 1)],
+	"diagstep": [Vector2i(1, -1), Vector2i(-1, -1), Vector2i(1, 1), Vector2i(-1, 1)],
+	"orthojump": [Vector2i(0, -2), Vector2i(-2, 0), Vector2i(2, 0), Vector2i(0, 2)],
+	"diagjump": [Vector2i(2, -2), Vector2i(-2, -2), Vector2i(2, 2), Vector2i(-2, 2)],
+	"clockwiseknight": [Vector2i(1, -2), Vector2i(-2, -1), Vector2i(2, 1), Vector2i(2, -1)],
+	"counterknight": [Vector2i(2, -1), Vector2i(-2, -1), Vector2i(2, 1), Vector2i(-2, 1)],
 }
 
 func _input(event):
@@ -161,3 +161,9 @@ func _input(event):
 
 func set_world_pos(new_pos: Vector2i):
 	world_pos = new_pos
+
+# Call this after world_pos is set to start the timer
+func start_autonomous_timer():
+	if timer and not timer.is_stopped():
+		return
+	timer.start()

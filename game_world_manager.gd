@@ -47,7 +47,7 @@ const NOMINO_SPRITES = [
 	preload("res://assets/sprites/nomino2.png")
 ]
 
-const NUM_NOMINOS = 48 # Number of Nominos to spawn
+const NUM_NOMINOS = 99 # Number of Nominos to spawn
 const DEFAULT_GRID_SIZE = 12 # Default number of tiles along each edge of the viewboard
 
 var nomino_click_handled_this_frame: bool = false
@@ -73,6 +73,7 @@ func _ready():
 	decorate_terrain()
 	place_tiles()
 	spawn_nominos()
+	# spawn_nomino() # For debugging
 
 func distribute_terrain():
 	terrain_map = []
@@ -384,6 +385,16 @@ func spawn_nominos():
 		nominos.append(nomino_data)
 		place_nomino(nomino_data)
 
+# Spawns a single Nomino at (5, 5) with orthostep movement
+func spawn_nomino():
+	var nomino_data = NominoData.new()
+	nomino_data.pos = Vector2i(5, 5)
+	nomino_data.move_types.append("orthostep")
+	nomino_data.species = "poe"
+	nominos.clear()
+	nominos.append(nomino_data)
+	place_nomino(nomino_data)
+
 # Places a Nomino instance in the scene at its world position, updating its sprite and visibility.
 # Handles freeing any previous node instance for this Nomino.
 func place_nomino(n):
@@ -406,6 +417,10 @@ func place_nomino(n):
 	var sprite = NOMINO_SCENE.instantiate()
 	# Set species property before adding to scene
 	sprite.species = n.species
+	# Assign move_types from NominoData to Nomino node
+	sprite.move_types.clear()
+	for t in n.move_types:
+		sprite.move_types.append(t)
 	# Add to Nominos group for group management
 	sprite.add_to_group("Nominos")
 
@@ -444,6 +459,14 @@ func place_nomino(n):
 		sprite.visible = false
 
 	n.node = sprite
+	# Set the Nomino's world_pos before starting the timer
+	if sprite.has_method("set_world_pos"):
+		sprite.set_world_pos(n.pos)
+	else:
+		sprite.world_pos = n.pos
+	# Start the Nomino's timer after world_pos is set
+	if sprite.has_method("start_autonomous_timer"):
+		sprite.start_autonomous_timer()
 
 # Handle move requests from Nomino nodes
 func _on_nomino_request_move(new_pos: Vector2i, n):
@@ -554,17 +577,3 @@ func _unhandled_input(event):
 		# Check if the click is within our grid bounds
 		if viewboard_coords.x >= 0 and viewboard_coords.x < GRID_SIZE and viewboard_coords.y >= 0 and viewboard_coords.y < GRID_SIZE:
 			var world_coords = viewboard_to_world_coords(viewboard_coords.x, viewboard_coords.y)
-			print("Clicked on viewboard (", viewboard_coords.x, ", ", viewboard_coords.y, ") = world (", world_coords.x, ", ", world_coords.y, ")")
-
-			for n in get_tree().get_nodes_in_group("Nominos"):
-				n.set_selected(false)
-
-			# Select the Nomino at this world position, if any
-			for n in nominos:
-				if n.pos.x == int(world_coords.x) and n.pos.y == int(world_coords.y):
-					if n.node:
-						n.node.set_selected(true)
-						notify_nomino_selection(n.node, true)
-					else:
-						notify_nomino_selection(null, false)
-					break
