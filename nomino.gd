@@ -4,6 +4,7 @@ extends Node2D
 var move_types: Array[String] = []  # e.g. ["orthostep", "diagstep"]
 var timer: Timer
 var original_position: Vector2
+var nomino_data: Resource # Reference to associated NominoData
 
 var sprite: Sprite2D
 
@@ -61,16 +62,16 @@ func _on_timer_timeout():
 	tw.tween_property(sprite, "position:y", sprite.position.y - jump_height, jump_duration).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	tw.tween_property(sprite, "position:y", 0, fall_duration).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 
-	# --- Nomino autonomous movement logic ---
-	# Pick a random move from move_types, if any
-	if move_types.size() > 0:
-		var move_pattern = move_types[randi() % move_types.size()]
-		if NOMINO_MOVES.has(move_pattern):
-			var options = NOMINO_MOVES[move_pattern]
-			var delta = options[randi() % options.size()]
-			# Request a move via signal (let world manager validate and apply)
-			var new_pos = Vector2i(int(position.x), int(position.y)) + Vector2i(int(delta.x), int(delta.y))
-			emit_signal("request_move", new_pos)
+       # --- Nomino autonomous movement logic ---
+       # Pick a random move from move_types, if any
+       if move_types.size() > 0 and nomino_data:
+               var move_pattern = move_types[randi() % move_types.size()]
+               if NOMINO_MOVES.has(move_pattern):
+                       var options = NOMINO_MOVES[move_pattern]
+                       var delta = options[randi() % options.size()]
+                       # Request a move via signal using world coordinates
+                       var new_pos = nomino_data.pos + Vector2i(int(delta.x), int(delta.y))
+                       emit_signal("request_move", new_pos)
 
 const NOMINO_MOVES = {
 	"orthostep": [Vector2(0, -1), Vector2(-1, 0), Vector2(1, 0), Vector2(0, 1)],

@@ -398,11 +398,13 @@ func place_nomino(n):
 		return
 
 	# Create the Nomino sprite and add to NominoLayer
-	var sprite = NOMINO_SCENE.instantiate()
-	# Set species property before adding to scene
-	sprite.species = n.species
-	# Add to Nominos group for group management
-	sprite.add_to_group("Nominos")
+       var sprite = NOMINO_SCENE.instantiate()
+       # Set species property before adding to scene
+       sprite.species = n.species
+       sprite.move_types = n.move_types.duplicate()
+       sprite.nomino_data = n
+       # Add to Nominos group for group management
+       sprite.add_to_group("Nominos")
 
 	# Connect the request_move signal to the world manager
 	sprite.request_move.connect(_on_nomino_request_move.bind(n))
