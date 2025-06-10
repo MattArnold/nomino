@@ -52,6 +52,10 @@ const DEFAULT_GRID_SIZE = 12 # Default number of tiles along each edge of the vi
 
 var nomino_click_handled_this_frame: bool = false
 
+# --- Highlighting for Nomino move targets ---
+var highlighted_tiles := [] # Array of (vx, vy) tuples currently highlighted
+var selected_nomino: Node = null # Reference to currently selected NominoData or node
+
 func _ready():
 	randomize()
 	# Add a dedicated NominoLayer for nomino sprites
@@ -214,34 +218,6 @@ func viewboard_to_world_coords(viewboard_x, viewboard_y):
 func world_to_viewboard_coords(world_x, world_y):
 	return Vector2(world_x - world_offset_x, world_y - world_offset_y)
 
-# Removed _input(event) to prevent duplicate tile selection logic. Only _unhandled_input is used for tile selection
-
-func _unhandled_input(event):
-	if nomino_click_handled_this_frame:
-		return
-	# Handle mouse clicks on the grid
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
-		var local_pos = to_local(event.position) - screen_offset
-		var viewboard_coords = screen_to_viewboard_coords(local_pos)
-
-		# Check if the click is within our grid bounds
-		if viewboard_coords.x >= 0 and viewboard_coords.x < GRID_SIZE and viewboard_coords.y >= 0 and viewboard_coords.y < GRID_SIZE:
-			var world_coords = viewboard_to_world_coords(viewboard_coords.x, viewboard_coords.y)
-			print("Clicked on viewboard (", viewboard_coords.x, ", ", viewboard_coords.y, ") = world (", world_coords.x, ", ", world_coords.y, ")")
-
-			for n in get_tree().get_nodes_in_group("Nominos"):
-				n.set_selected(false)
-
-			# Select the Nomino at this world position, if any
-			for n in nominos:
-				if n.pos.x == int(world_coords.x) and n.pos.y == int(world_coords.y):
-					if n.node:
-						n.node.set_selected(true)
-					break
-
-		# Tile selection logic here (if any)
-
 func update_viewboard_tiles():
 	for vx in range(GRID_SIZE):
 		for vy in range(GRID_SIZE):
@@ -274,6 +250,11 @@ func update_viewboard_tiles():
 				var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
 				sprite.position = screen_pos + screen_offset
 				sprite.position.y -= elevation * 6
+
+	clear_tile_highlights()
+	# Re-apply highlights if a Nomino is selected
+	if selected_nomino:
+		highlight_nomino_targets(selected_nomino)
 
 func update_nomino_positions():
 	for n in nominos:
@@ -496,3 +477,88 @@ func zoom_out():
 		place_tiles()
 		update_viewboard_tiles()
 		update_nomino_positions()
+
+# Call this to clear all tile highlights
+func clear_tile_highlights():
+	for tile in highlighted_tiles:
+		var vx = tile.x
+		var vy = tile.y
+		if vx >= 0 and vx < GRID_SIZE and vy >= 0 and vy < GRID_SIZE:
+			var sprite = tile_sprites[vx][vy]
+			if sprite:
+				sprite.modulate = Color(1, 1, 1, 1)
+	highlighted_tiles.clear()
+
+# Call this to highlight all target tiles for a Nomino
+func highlight_nomino_targets(nomino_node):
+	clear_tile_highlights()
+	if not nomino_node:
+		return
+	# Find the NominoData for this node
+	var nomino_data = null
+	for n in nominos:
+		if n.node == nomino_node:
+			nomino_data = n
+			break
+	if not nomino_data:
+		return
+	var pos = nomino_data.pos
+	for move_type in nomino_data.move_types:
+		if move_type in nomino_node.NOMINO_MOVES:
+			var deltas = nomino_node.NOMINO_MOVES[move_type]
+			for delta in deltas:
+				var target = pos + Vector2i(int(delta.x), int(delta.y))
+				# Only highlight if in world bounds and in viewboard
+				if target.x >= 0 and target.x < WORLD_WIDTH and target.y >= 0 and target.y < WORLD_HEIGHT:
+					var vx = target.x - world_offset_x
+					var vy = target.y - world_offset_y
+					if vx >= 0 and vx < GRID_SIZE and vy >= 0 and vy < GRID_SIZE:
+						var sprite = tile_sprites[vx][vy]
+						if sprite:
+							sprite.modulate = Color(2, 2, 2, 1)
+						highlighted_tiles.append(Vector2i(vx, vy))
+
+# Patch Nomino selection logic to call highlight_nomino_targets
+func on_nomino_selected(nomino_node):
+	selected_nomino = nomino_node
+	highlight_nomino_targets(nomino_node)
+
+func on_nomino_deselected():
+	selected_nomino = null
+	clear_tile_highlights()
+
+# --- Patch Nomino selection ---
+# Wrap set_selected on Nomino nodes to notify us
+func notify_nomino_selection(nomino_node, selected):
+	if selected:
+		on_nomino_selected(nomino_node)
+	else:
+		on_nomino_deselected()
+
+# --- Patch _unhandled_input to notify selection ---
+func _unhandled_input(event):
+	if nomino_click_handled_this_frame:
+		return
+	# Handle mouse clicks on the grid
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
+		var local_pos = to_local(event.position) - screen_offset
+		var viewboard_coords = screen_to_viewboard_coords(local_pos)
+
+		# Check if the click is within our grid bounds
+		if viewboard_coords.x >= 0 and viewboard_coords.x < GRID_SIZE and viewboard_coords.y >= 0 and viewboard_coords.y < GRID_SIZE:
+			var world_coords = viewboard_to_world_coords(viewboard_coords.x, viewboard_coords.y)
+			print("Clicked on viewboard (", viewboard_coords.x, ", ", viewboard_coords.y, ") = world (", world_coords.x, ", ", world_coords.y, ")")
+
+			for n in get_tree().get_nodes_in_group("Nominos"):
+				n.set_selected(false)
+
+			# Select the Nomino at this world position, if any
+			for n in nominos:
+				if n.pos.x == int(world_coords.x) and n.pos.y == int(world_coords.y):
+					if n.node:
+						n.node.set_selected(true)
+						notify_nomino_selection(n.node, true)
+					else:
+						notify_nomino_selection(null, false)
+					break

@@ -113,6 +113,10 @@ func set_selected(selected: bool):
 			sprite.modulate = Color(1.5, 1.5, 1.5, 1) # Lighten
 		else:
 			sprite.modulate = Color(1, 1, 1, 1) # Normal
+	# --- Notify GameWorldManager for tile highlighting ---
+	var gwm = get_tree().get_root().find_child("GameWorldManager", true, false)
+	if gwm and gwm.has_method("notify_nomino_selection"):
+		gwm.notify_nomino_selection(self, selected)
 
 func _on_timer_timeout():
 	# Animate jump: up then down, using cubic ease in/out
