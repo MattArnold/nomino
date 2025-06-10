@@ -30,7 +30,7 @@ const INPUT_REPEAT_RATE := 0.1
 var terrain_noise := FastNoiseLite.new()
 var elevation_noise := FastNoiseLite.new()
 
-var nominos = []  # stores { node: Nomino, pos: Vector2i }
+var nominos = []  # stores NominoData instances
 
 var tile_textures = {
 	"grass": preload("res://assets/tiles/grass_cube.png"),
@@ -455,6 +455,12 @@ func _on_nomino_request_move(new_pos: Vector2i, n):
 		return # Ignore out-of-bounds moves
 	# Optionally, add more validation here (e.g., collision, terrain)
 	n.pos = new_pos
+	# Keep Nomino node's world_pos in sync for autonomous movement
+	if n.node and is_instance_valid(n.node):
+		if n.node.has_method("set_world_pos"):
+			n.node.set_world_pos(new_pos)
+		else:
+			n.node.world_pos = new_pos
 	update_nomino_positions()
 
 # --- ZOOM IN/OUT: Adjust GRID_SIZE and recalculate tile sizes ---

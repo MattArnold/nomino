@@ -12,7 +12,7 @@ I've created a foundational grid system that handles coordinate conversion betwe
 
 There is a HUD with buttons for scrolling the viewboard north, south, east, and west. There are zoom buttons for fitting more or fewer squares into the viewboard, using the same visible area of the screen, scaling all the sprites accordingly.
 
-The game features creatures called Nominos. I'm spawning several Nominos when the world is created, each with its own instantiation of nomino.tscsn, and each on a different coordinate. The game is successfully managing their visiblility as they scroll or zoom on or off the viewboard, so that they are only visible when their square is visible.
+The game features creatures called Nominos. I'm spawning several Nominos when the world is created, each with its own instantiation of nomino.tscsn, and each on a different coordinate. The game is successfully managing their visibility as they scroll or zoom on or off the viewboard, so that they are only visible when their square is visible.
 
 The following is what I haven't implemented yet:
 
