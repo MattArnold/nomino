@@ -32,6 +32,8 @@ var collision_shape
 
 var current_selected_nomino: Area2D = null
 
+var world_pos: Vector2i # Logical world/tile coordinate
+
 func _ready():
 	# Set timer wait_time and sprite based on species
 	var wait_time = SPECIES_HOP_TIME[species] if SPECIES_HOP_TIME.has(species) else 5.0
@@ -77,6 +79,9 @@ func _ready():
 		var new_rect_shape = RectangleShape2D.new()
 		new_rect_shape.extents = Vector2(32, 32)
 		collision_shape.shape = new_rect_shape
+
+	# Initialize world_pos from position (if needed, e.g. if placed by editor)
+	world_pos = Vector2i(int(position.x), int(position.y)) # TODO: Replace with actual world-to-screen conversion if needed
 
 	input_pickable = true
 	z_index = 1000
@@ -136,9 +141,10 @@ func _on_timer_timeout():
 		if NOMINO_MOVES.has(move_pattern):
 			var options = NOMINO_MOVES[move_pattern]
 			var delta = options[randi() % options.size()]
+			# Compute new world position using world_pos, not screen position
+			var new_world_pos = world_pos + Vector2i(int(delta.x), int(delta.y))
 			# Request a move via signal (let world manager validate and apply)
-			var new_pos = Vector2i(int(position.x), int(position.y)) + Vector2i(int(delta.x), int(delta.y))
-			emit_signal("request_move", new_pos)
+			emit_signal("request_move", new_world_pos)
 
 const NOMINO_MOVES = {
 	"orthostep": [Vector2(0, -1), Vector2(-1, 0), Vector2(1, 0), Vector2(0, 1)],
@@ -152,3 +158,6 @@ const NOMINO_MOVES = {
 func _input(event):
 	# print("DEBUG: _input called for ", self, " event=", event)
 	pass
+
+func set_world_pos(new_pos: Vector2i):
+	world_pos = new_pos
