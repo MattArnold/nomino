@@ -78,12 +78,18 @@ func _ready():
 		new_rect_shape.extents = Vector2(32, 32)
 		collision_shape.shape = new_rect_shape
 
+	input_pickable = true
+	z_index = 1000
+
 func _input_event(_viewport, event, _shape_idx):
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		set_selected(true)
 		print("DEBUG: Nomino sprite clicked and selected at pos=", position)
+		var gwm = get_tree().get_root().find_child("GameWorldManager", true, false)
+		if gwm:
+			gwm.nomino_click_handled_this_frame = true
 		# event.consume() # Preferred in Godot 4.x, but if it fails, use the line below:
-		get_viewport().set_input_as_handled() # Fallback: prevent event from propagating to tile below
+		# get_viewport().set_input_as_handled() # Fallback: prevent event from propagating to tile below
 
 func set_selected(selected: bool):
 	# Only update if the value is actually changing

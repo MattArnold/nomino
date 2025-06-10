@@ -50,6 +50,8 @@ const NOMINO_SPRITES = [
 const NUM_NOMINOS = 48 # Number of Nominos to spawn
 const DEFAULT_GRID_SIZE = 12 # Default number of tiles along each edge of the viewboard
 
+var nomino_click_handled_this_frame: bool = false
+
 func _ready():
 	randomize()
 	# Add a dedicated NominoLayer for nomino sprites
@@ -212,7 +214,11 @@ func viewboard_to_world_coords(viewboard_x, viewboard_y):
 func world_to_viewboard_coords(world_x, world_y):
 	return Vector2(world_x - world_offset_x, world_y - world_offset_y)
 
-func _input(event):
+# Removed _input(event) to prevent duplicate tile selection logic. Only _unhandled_input is used for tile selection
+
+func _unhandled_input(event):
+	if nomino_click_handled_this_frame:
+		return
 	# Handle mouse clicks on the grid
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
@@ -233,6 +239,8 @@ func _input(event):
 					if n.node:
 						n.node.set_selected(true)
 					break
+
+		# Tile selection logic here (if any)
 
 func update_viewboard_tiles():
 	for vx in range(GRID_SIZE):
@@ -318,6 +326,8 @@ func move_viewboard(dx, dy):
 		controls.update_scroll_buttons()
 
 func _process(delta):
+	call_deferred("_reset_nomino_click_flag")
+
 	var input = Vector2.ZERO
 
 	# WASD or Arrow Keys
@@ -347,6 +357,9 @@ func _process(delta):
 		input_repeat_timer = 0.0
 
 	previous_input = input
+
+func _reset_nomino_click_flag():
+	nomino_click_handled_this_frame = false
 
 # Spawns all Nominos at unique positions and assigns them random movement patterns.
 # Each Nomino is a dictionary with keys: 'pos' (Vector2i), 'node' (instance), and 'move_types' (Array of movement pattern names).
