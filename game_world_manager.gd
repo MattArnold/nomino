@@ -49,6 +49,9 @@ var nomino_click_handled_this_frame: bool = false
 var highlighted_tiles := [] # Array of (vx, vy) tuples currently highlighted
 var selected_nomino: Node = null # Reference to currently selected NominoData or node
 
+# --- Coordinate conversion utility import ---
+const CoordinateUtils = preload("utils/coordinate_utils.gd")
+
 func _ready():
 	randomize()
 	# Add a dedicated NominoLayer for nomino sprites
@@ -154,35 +157,22 @@ func create_tile_sprite(wx, wy):
 # Converts viewboard grid coordinates (0..GRID_SIZE-1) to screen pixel coordinates for isometric rendering.
 # The resulting Vector2 is the pixel position on screen for the top-left corner of the tile at (viewboard_x, viewboard_y).
 func viewboard_to_screen_coords(viewboard_x, viewboard_y):
-	# Convert viewboard grid coordinates to screen pixel coordinates
-	# This creates the isometric diamond pattern
-	var screen_x = (viewboard_x - viewboard_y) * (TILE_WIDTH / 2)
-	var screen_y = (viewboard_x + viewboard_y) * (TILE_HEIGHT / 2)
-	return Vector2(screen_x, screen_y)
+	return CoordinateUtils.viewboard_to_screen_coords(viewboard_x, viewboard_y, TILE_WIDTH, TILE_HEIGHT)
 
 # Converts a screen pixel position (relative to the viewboard origin) back to viewboard grid coordinates.
 # Returns a Vector2 of (viewboard_x, viewboard_y), rounded to the nearest integer grid cell.
 func screen_to_viewboard_coords(screen_pos):
-	# Convert screen pixel coordinates back to viewboard grid coordinates
-	# This reverses the isometric transformation
-	var temp_x = screen_pos.x / (TILE_WIDTH / 2) + screen_pos.y / (TILE_HEIGHT / 2)
-	var temp_y = screen_pos.y / (TILE_HEIGHT / 2) - screen_pos.x / (TILE_WIDTH / 2)
-
-	# Round to nearest integer coordinates
-	var viewboard_x = int(round(temp_x / 2))
-	var viewboard_y = int(round(temp_y / 2))
-
-	return Vector2(viewboard_x, viewboard_y)
+	return CoordinateUtils.screen_to_viewboard_coords(screen_pos, TILE_WIDTH, TILE_HEIGHT)
 
 # Converts viewboard grid coordinates to world coordinates (absolute position in the game world).
 # Returns a Vector2 of (world_x, world_y).
 func viewboard_to_world_coords(viewboard_x, viewboard_y):
-	return Vector2(viewboard_x + world_offset_x, viewboard_y + world_offset_y)
+	return CoordinateUtils.viewboard_to_world_coords(viewboard_x, viewboard_y, world_offset_x, world_offset_y)
 
 # Converts world coordinates to viewboard grid coordinates (relative to the current viewboard offset).
 # Returns a Vector2 of (viewboard_x, viewboard_y).
 func world_to_viewboard_coords(world_x, world_y):
-	return Vector2(world_x - world_offset_x, world_y - world_offset_y)
+	return CoordinateUtils.world_to_viewboard_coords(world_x, world_y, world_offset_x, world_offset_y)
 
 func update_viewboard_tiles():
 	for vx in range(GRID_SIZE):
