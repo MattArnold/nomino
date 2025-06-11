@@ -28,9 +28,5 @@ func _ready():
 		var viewboard_back = game_world_manager.screen_to_viewboard_coords(screen_pos)
 		var world_back = game_world_manager.viewboard_to_world_coords(viewboard_back.x, viewboard_back.y)
 
-		print("World:", world_pos, " -> Viewboard:", viewboard_pos, " -> Screen:", screen_pos, " -> ViewboardBack:", viewboard_back, " -> WorldBack:", world_back)
-
 		# Check that round-trip conversion is accurate (allowing for rounding)
 		assert(abs(world_pos.x - world_back.x) <= 1 and abs(world_pos.y - world_back.y) <= 1, "Coordinate round-trip failed for "+str(world_pos))
-
-	print("Coordinate conversion tests passed.")

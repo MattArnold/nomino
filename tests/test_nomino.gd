@@ -36,7 +36,6 @@ func after_each():
 func test_nomino_movement():
 	# Test that the nomino can move according to its defined patterns
 	var initial_pos = nomino.world_pos
-	print("Initial pos: ", initial_pos)
 	# Call timer timeout to trigger autonomous movement logic
 	nomino._on_timer_timeout()
 	await get_tree().process_frame  # Allow signal to be processed
@@ -54,7 +53,6 @@ func test_nomino_movement():
 			break
 	assert(found, "No valid move found for test.")
 	await get_tree().process_frame
-	print("After simulated hop, world_pos: ", nomino.world_pos)
 	# Check if the position has changed according to orthostep rules
 	var expected_moves = [
 		Vector2i(0, -1), Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, 1)
@@ -64,7 +62,6 @@ func test_nomino_movement():
 		if nomino.world_pos == initial_pos + move:
 			moved = true
 			break
-	print("Moved? ", moved, " (expected moves: ", expected_moves, ")")
 	assert(moved, "Nomino did not move according to orthostep rules.")
 
 func test_nomino_selection():
