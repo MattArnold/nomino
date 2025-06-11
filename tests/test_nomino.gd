@@ -3,11 +3,15 @@
 
 extends GutTest
 
+const Nomino = preload("res://nomino.gd")
+
 var nomino
 var nomino_data
 var main_scene_instance
 
 func before_each():
+	# Enable test mode for Nomino to bypass tweens
+	Nomino.test_mode = true
 	# Load and add the main scene to ensure GameWorldManager exists
 	var main_scene = load("res://main.tscn")
 	main_scene_instance = main_scene.instantiate()
@@ -32,6 +36,8 @@ func after_each():
 	# Clean up the main scene after each test
 	if main_scene_instance and is_instance_valid(main_scene_instance):
 		main_scene_instance.queue_free()
+	# Disable test mode after test
+	Nomino.test_mode = false
 
 func test_nomino_movement():
 	# Test that the nomino can move according to its defined patterns

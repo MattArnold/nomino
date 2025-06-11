@@ -35,6 +35,9 @@ var current_selected_nomino: Area2D = null
 
 var world_pos: Vector2i # Logical world/tile coordinate
 
+# Static flag to enable test mode (bypasses tweens for testability)
+static var test_mode: bool = false
+
 func _ready():
 	# Set timer wait_time and sprite based on species
 	var wait_time = SPECIES_HOP_TIME[species] if SPECIES_HOP_TIME.has(species) else 5.0
@@ -141,7 +144,10 @@ func _on_timer_timeout():
 			if valid_options.size() > 0:
 				var delta = valid_options[randi() % valid_options.size()]
 				var new_world_pos = world_pos + delta
-
+				if test_mode:
+					# In test mode, immediately emit move
+					emit_signal("request_move", new_world_pos)
+					return
 				# --- Animate hop from current to new world position ---
 				# Convert world positions to screen positions
 				var origin_world = world_pos
@@ -181,13 +187,14 @@ func _on_timer_timeout():
 			# else: no valid moves, just hop in place
 	else:
 		# No move: just hop in place (in-place parabola)
-		var hop_height = 32
-		var hop_duration = 0.5
-		var tw = create_tween()
-		tw.tween_property(sprite, "position:y", -hop_height, hop_duration/2).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-		tw.tween_property(sprite, "position:y", 0, hop_duration/2).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+		if test_mode:
+			return # skip animation in test mode
+		# ...existing code...
 
 func _on_hop_animation_finished(new_world_pos):
+	if test_mode:
+		emit_signal("request_move", new_world_pos)
+		return
 	emit_signal("request_move", new_world_pos)
 
 const NOMINO_MOVES = {
