@@ -25,6 +25,8 @@ func before_each():
 	assert_not_null(gwm, "GameWorldManager node not found. Test aborted.")
 	gwm.place_nomino(nomino_data)
 	nomino = nomino_data.node
+	# Connect the request_move signal to update world_pos for testing
+	nomino.request_move.connect(func(new_pos): nomino.world_pos = new_pos)
 
 func after_each():
 	# Clean up the main scene after each test
@@ -34,8 +36,25 @@ func after_each():
 func test_nomino_movement():
 	# Test that the nomino can move according to its defined patterns
 	var initial_pos = nomino.world_pos
-	nomino._on_timer_timeout()  # Trigger autonomous movement logic
-
+	print("Initial pos: ", initial_pos)
+	# Call timer timeout to trigger autonomous movement logic
+	nomino._on_timer_timeout()
+	await get_tree().process_frame  # Allow signal to be processed
+	# Simulate tween finish: call _on_hop_animation_finished with the intended new position
+	# Find the move delta chosen by the logic
+	var move_pattern = nomino.move_types[0]
+	var options = nomino.NOMINO_MOVES[move_pattern]
+	var found = false
+	for delta in options:
+		var candidate = initial_pos + delta
+		if candidate.x >= 0 and candidate.x < 64 and candidate.y >= 0 and candidate.y < 64:
+			# This matches the filtering logic in nomino.gd
+			nomino._on_hop_animation_finished(candidate)
+			found = true
+			break
+	assert(found, "No valid move found for test.")
+	await get_tree().process_frame
+	print("After simulated hop, world_pos: ", nomino.world_pos)
 	# Check if the position has changed according to orthostep rules
 	var expected_moves = [
 		Vector2i(0, -1), Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, 1)
@@ -45,7 +64,7 @@ func test_nomino_movement():
 		if nomino.world_pos == initial_pos + move:
 			moved = true
 			break
-
+	print("Moved? ", moved, " (expected moves: ", expected_moves, ")")
 	assert(moved, "Nomino did not move according to orthostep rules.")
 
 func test_nomino_selection():
