@@ -20,13 +20,6 @@ var tile_sprites = []
 var terrain_map = []
 var elevation_map = []
 
-var current_viewboard_input := Vector2.ZERO
-var input_hold_timer := 0.0
-var input_repeat_timer := 0.0
-var previous_input := Vector2.ZERO
-const INPUT_REPEAT_DELAY := 0.3
-const INPUT_REPEAT_RATE := 0.1
-
 var terrain_noise := FastNoiseLite.new()
 var elevation_noise := FastNoiseLite.new()
 
@@ -278,42 +271,6 @@ func move_viewboard(dx, dy):
 	var controls = get_tree().get_root().find_child("ViewboardControls", true, false)
 	if controls and controls.has_method("update_scroll_buttons"):
 		controls.update_scroll_buttons()
-
-func _process(delta):
-	call_deferred("_reset_nomino_click_flag")
-
-	var input = Vector2.ZERO
-
-	# WASD or Arrow Keys
-	if Input.is_action_pressed("view_north"):
-		input.y -= 1
-	if Input.is_action_pressed("view_south"):
-		input.y += 1
-	if Input.is_action_pressed("view_west"):
-		input.x -= 1
-	if Input.is_action_pressed("view_east"):
-		input.x += 1
-
-	# HUD pad input from viewboard_root.gd
-	if input == Vector2.ZERO:
-		input = current_viewboard_input
-
-	if input != Vector2.ZERO:
-		if input != previous_input:
-			move_viewboard(input.x, input.y)
-			input_repeat_timer = INPUT_REPEAT_DELAY
-		else:
-			input_repeat_timer -= delta
-			if input_repeat_timer <= 0.0:
-				move_viewboard(input.x, input.y)
-				input_repeat_timer = INPUT_REPEAT_RATE
-	else:
-		input_repeat_timer = 0.0
-
-	previous_input = input
-
-func _reset_nomino_click_flag():
-	nomino_click_handled_this_frame = false
 
 # Spawns all Nominos at unique positions and assigns them random movement patterns.
 # Each Nomino is a dictionary with keys: 'pos' (Vector2i), 'node' (instance), and 'move_types' (Array of movement pattern names).

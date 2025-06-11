@@ -2,7 +2,12 @@ extends Control
 
 @onready var game_world_manager = get_node("../../GameWorld/GameWorldManager")
 
-var pad_input := Vector2.ZERO
+var current_viewboard_input := Vector2.ZERO
+var input_hold_timer := 0.0
+var input_repeat_timer := 0.0
+var previous_input := Vector2.ZERO
+const INPUT_REPEAT_DELAY := 0.3
+const INPUT_REPEAT_RATE := 0.1
 
 func _ready():
 	create_viewboard_controls_container()
@@ -109,28 +114,28 @@ func connect_buttons():
 	var scroll_pad = get_node("ViewboardControlsContainer/ScrollPad")
 
 	scroll_pad.get_node("ButtonNorth").button_down.connect(func():
-		game_world_manager.current_viewboard_input = Vector2(0, -1)
+		current_viewboard_input = Vector2(0, -1)
 		update_scroll_buttons()
 	)
-	scroll_pad.get_node("ButtonNorth").button_up.connect(func(): game_world_manager.current_viewboard_input = Vector2.ZERO)
+	scroll_pad.get_node("ButtonNorth").button_up.connect(func(): current_viewboard_input = Vector2.ZERO)
 
 	scroll_pad.get_node("ButtonSouth").button_down.connect(func():
-		game_world_manager.current_viewboard_input = Vector2(0, 1)
+		current_viewboard_input = Vector2(0, 1)
 		update_scroll_buttons()
 	)
-	scroll_pad.get_node("ButtonSouth").button_up.connect(func(): game_world_manager.current_viewboard_input = Vector2.ZERO)
+	scroll_pad.get_node("ButtonSouth").button_up.connect(func(): current_viewboard_input = Vector2.ZERO)
 
 	scroll_pad.get_node("ButtonWest").button_down.connect(func():
-		game_world_manager.current_viewboard_input = Vector2(-1, 0)
+		current_viewboard_input = Vector2(-1, 0)
 		update_scroll_buttons()
 	)
-	scroll_pad.get_node("ButtonWest").button_up.connect(func(): game_world_manager.current_viewboard_input = Vector2.ZERO)
+	scroll_pad.get_node("ButtonWest").button_up.connect(func(): current_viewboard_input = Vector2.ZERO)
 
 	scroll_pad.get_node("ButtonEast").button_down.connect(func():
-		game_world_manager.current_viewboard_input = Vector2(1, 0)
+		current_viewboard_input = Vector2(1, 0)
 		update_scroll_buttons()
 	)
-	scroll_pad.get_node("ButtonEast").button_up.connect(func(): game_world_manager.current_viewboard_input = Vector2.ZERO)
+	scroll_pad.get_node("ButtonEast").button_up.connect(func(): current_viewboard_input = Vector2.ZERO)
 
 	# connect the scroll pad to the "w", "a", "s", and "d" keys for movement
 	InputMap.add_action("ScrollNorth")
@@ -195,3 +200,35 @@ func _input(event):
 		game_world_manager.zoom_out()
 	# Update scroll buttons on any input
 	update_scroll_buttons()
+
+func _process(delta):
+	var input = Vector2.ZERO
+
+	# WASD or Arrow Keys
+	if Input.is_action_pressed("view_north"):
+		input.y -= 1
+	if Input.is_action_pressed("view_south"):
+		input.y += 1
+	if Input.is_action_pressed("view_west"):
+		input.x -= 1
+	if Input.is_action_pressed("view_east"):
+		input.x += 1
+
+	# HUD pad input from scroll pad
+	if input == Vector2.ZERO:
+		input = current_viewboard_input
+
+	# Input repeat/delay logic is managed here (UI/UX responsibility)
+	if input != Vector2.ZERO:
+		if input != previous_input:
+			game_world_manager.move_viewboard(input.x, input.y)
+			input_repeat_timer = INPUT_REPEAT_DELAY
+		else:
+			input_repeat_timer -= delta
+			if input_repeat_timer <= 0.0:
+				game_world_manager.move_viewboard(input.x, input.y)
+				input_repeat_timer = INPUT_REPEAT_RATE
+	else:
+		input_repeat_timer = 0.0
+
+	previous_input = input
