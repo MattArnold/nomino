@@ -125,67 +125,57 @@ func set_selected(selected: bool):
 
 func _on_timer_timeout():
 	# --- Nomino autonomous movement logic ---
-	if move_types.size() > 0:
-		var move_pattern = move_types[randi() % move_types.size()]
-		if NOMINO_MOVES.has(move_pattern):
-			var options = NOMINO_MOVES[move_pattern]
-			# Filter options to only those that stay in bounds
-			var gwm = get_tree().get_root().find_child("GameWorldManager", true, false)
-			var world_width = 64
-			var world_height = 64
-			if gwm:
-				world_width = gwm.WORLD_WIDTH
-				world_height = gwm.WORLD_HEIGHT
-			var valid_options = []
-			for delta in options:
-				var new_world_pos = world_pos + delta
-				if new_world_pos.x >= 0 and new_world_pos.x < world_width and new_world_pos.y >= 0 and new_world_pos.y < world_height:
-					valid_options.append(delta)
-			if valid_options.size() > 0:
-				var delta = valid_options[randi() % valid_options.size()]
-				var new_world_pos = world_pos + delta
-				if test_mode:
-					# In test mode, immediately emit move
-					emit_signal("request_move", new_world_pos)
-					return
-				# --- Animate hop from current to new world position ---
-				# Convert world positions to screen positions
-				var origin_world = world_pos
-				var dest_world = new_world_pos
-				var origin_view = Vector2(origin_world.x, origin_world.y)
-				var dest_view = Vector2(dest_world.x, dest_world.y)
-				if gwm and gwm.has_method("world_to_viewboard_coords") and gwm.has_method("viewboard_to_screen_coords"):
-					origin_view = gwm.world_to_viewboard_coords(origin_world.x, origin_world.y)
-					dest_view = gwm.world_to_viewboard_coords(dest_world.x, dest_world.y)
-					# Match update_nomino_positions: subtract 1 from both x and y
-					origin_view.x -= 1
-					origin_view.y -= 1
-					dest_view.x -= 1
-					dest_view.y -= 1
-					var origin_screen = gwm.viewboard_to_screen_coords(origin_view.x, origin_view.y)
-					var dest_screen = gwm.viewboard_to_screen_coords(dest_view.x, dest_view.y)
-					var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
-					origin_screen += screen_offset
-					dest_screen += screen_offset
-					# --- Apply elevation offset to both origin and destination ---
-					if gwm and gwm.elevation_map and gwm.elevation_map.size() > origin_world.x and gwm.elevation_map[origin_world.x].size() > origin_world.y:
-						origin_screen.y -= gwm.elevation_map[origin_world.x][origin_world.y] * 6
-					if gwm and gwm.elevation_map and gwm.elevation_map.size() > dest_world.x and gwm.elevation_map[dest_world.x].size() > dest_world.y:
-						dest_screen.y -= gwm.elevation_map[dest_world.x][dest_world.y] * 6
-					# Animate position and y-offset for parabola
-					var hop_height = 32
-					var hop_duration = 0.5
-					var tw = create_tween()
-					tw.tween_property(self, "position", origin_screen, 0.0)
-					tw.parallel().tween_property(self, "position", dest_screen, hop_duration).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-					tw.parallel().tween_property(sprite, "position:y", -hop_height, hop_duration/2).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-					tw.tween_property(sprite, "position:y", 0, hop_duration/2).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
-					tw.connect("finished", Callable(self, "_on_hop_animation_finished").bind(new_world_pos))
-				else:
-					# Fallback: just emit move immediately
-					emit_signal("request_move", new_world_pos)
-			# else: no valid moves, just hop in place
-	else:
+	var gwm = get_tree().get_root().find_child("GameWorldManager", true, false)
+	var world_width = 64
+	var world_height = 64
+	if gwm:
+		world_width = gwm.WORLD_WIDTH
+		world_height = gwm.WORLD_HEIGHT
+	var valid_moves = get_valid_moves(world_pos, move_types, world_width, world_height)
+	if valid_moves.size() > 0:
+		var new_world_pos = valid_moves[randi() % valid_moves.size()]
+		if test_mode:
+			emit_signal("request_move", new_world_pos)
+			return
+		# --- Animate hop from current to new world position ---
+		if gwm and gwm.has_method("world_to_viewboard_coords") and gwm.has_method("viewboard_to_screen_coords"):
+			# Convert world positions to screen positions
+			var origin_world = world_pos
+			var dest_world = new_world_pos
+			var origin_view = Vector2(origin_world.x, origin_world.y)
+			var dest_view = Vector2(dest_world.x, dest_world.y)
+			if gwm and gwm.has_method("world_to_viewboard_coords") and gwm.has_method("viewboard_to_screen_coords"):
+				origin_view = gwm.world_to_viewboard_coords(origin_world.x, origin_world.y)
+				dest_view = gwm.world_to_viewboard_coords(dest_world.x, dest_world.y)
+				# Match update_nomino_positions: subtract 1 from both x and y
+				origin_view.x -= 1
+				origin_view.y -= 1
+				dest_view.x -= 1
+				dest_view.y -= 1
+				var origin_screen = gwm.viewboard_to_screen_coords(origin_view.x, origin_view.y)
+				var dest_screen = gwm.viewboard_to_screen_coords(dest_view.x, dest_view.y)
+				var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
+				origin_screen += screen_offset
+				dest_screen += screen_offset
+				# --- Apply elevation offset to both origin and destination ---
+				if gwm and gwm.elevation_map and gwm.elevation_map.size() > origin_world.x and gwm.elevation_map[origin_world.x].size() > origin_world.y:
+					origin_screen.y -= gwm.elevation_map[origin_world.x][origin_world.y] * 6
+				if gwm and gwm.elevation_map and gwm.elevation_map.size() > dest_world.x and gwm.elevation_map[dest_world.x].size() > dest_world.y:
+					dest_screen.y -= gwm.elevation_map[dest_world.x][dest_world.y] * 6
+				# Animate position and y-offset for parabola
+				var hop_height = 32
+				var hop_duration = 0.5
+				var tw = create_tween()
+				tw.tween_property(self, "position", origin_screen, 0.0)
+				tw.parallel().tween_property(self, "position", dest_screen, hop_duration).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+				tw.parallel().tween_property(sprite, "position:y", -hop_height, hop_duration/2).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+				tw.tween_property(sprite, "position:y", 0, hop_duration/2).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+				tw.connect("finished", Callable(self, "_on_hop_animation_finished").bind(new_world_pos))
+			else:
+				# Fallback: just emit move immediately
+				emit_signal("request_move", new_world_pos)
+	# else: no valid moves, just hop in place
+	elif not test_mode:
 		# No move: just hop in place (in-place parabola)
 		if test_mode:
 			return # skip animation in test mode
@@ -206,8 +196,7 @@ const NOMINO_MOVES = {
 	"counterknight": [Vector2i(2, -1), Vector2i(-2, -1), Vector2i(2, 1), Vector2i(-2, 1)],
 }
 
-func _input(event):
-	# print("DEBUG: _input called for ", self, " event=", event)
+func _input(_event):
 	pass
 
 func set_world_pos(new_pos: Vector2i):
@@ -218,3 +207,13 @@ func start_autonomous_timer():
 	if timer and not timer.is_stopped():
 		return
 	timer.start()
+
+static func get_valid_moves(current_pos: Vector2i, move_types_list: Array, world_width: int, world_height: int) -> Array:
+	var valid_moves = []
+	for move_pattern in move_types_list:
+		if NOMINO_MOVES.has(move_pattern):
+			for delta in NOMINO_MOVES[move_pattern]:
+				var new_pos = current_pos + delta
+				if new_pos.x >= 0 and new_pos.x < world_width and new_pos.y >= 0 and new_pos.y < world_height:
+					valid_moves.append(new_pos)
+	return valid_moves
