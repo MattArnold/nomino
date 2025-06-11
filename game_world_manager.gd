@@ -398,6 +398,8 @@ func place_nomino(n):
 
 	# Connect the request_move signal to the world manager
 	sprite.request_move.connect(_on_nomino_request_move.bind(n))
+	# Connect the selection_changed signal to the world manager
+	sprite.selection_changed.connect(notify_nomino_selection)
 
 	var sprite2d = sprite.get_node_or_null("Sprite2D")
 	if not sprite2d:

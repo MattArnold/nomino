@@ -25,6 +25,7 @@ const SPECIES_HOP_TIME = {
 
 # Signal for requesting a move from the Nomino node
 signal request_move(new_pos: Vector2i)
+signal selection_changed(nomino_node: Node, is_selected: bool)
 
 var is_selected: bool = false
 
@@ -116,10 +117,8 @@ func set_selected(selected: bool):
 			sprite.modulate = Color(1.5, 1.5, 1.5, 1) # Lighten
 		else:
 			sprite.modulate = Color(1, 1, 1, 1) # Normal
-	# --- Notify GameWorldManager for tile highlighting ---
-	var gwm = get_tree().get_root().find_child("GameWorldManager", true, false)
-	if gwm and gwm.has_method("notify_nomino_selection"):
-		gwm.notify_nomino_selection(self, selected)
+	# --- Emit selection signal instead of notifying GameWorldManager directly ---
+	emit_signal("selection_changed", self, selected)
 
 func _on_timer_timeout():
 	# --- Nomino autonomous movement logic ---
