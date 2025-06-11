@@ -14,7 +14,7 @@ There is a HUD with buttons for scrolling the viewboard north, south, east, and 
 
 The game features creatures called Nominos. I'm spawning several Nominos when the world is created, each with its own instantiation of nomino.tscsn, and each on a different coordinate. The game is successfully managing their visibility as they scroll or zoom on or off the viewboard, so that they are only visible when their square is visible.
 
-Each Nomino has a specific chess movement pattern, such as moving like a rook or knight, but with the constraint that no Nomino can move more than two squares away from its current position.
+Each Nomino has a specific chess movement pattern, described below.
 
 Much of the following, I haven't implemented yet:
 
