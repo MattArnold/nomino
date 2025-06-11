@@ -18,9 +18,9 @@ const SPECIES_SPRITES = {
 
 # Hop timer for each species
 const SPECIES_HOP_TIME = {
-	"poe": 2.0,
+	"poe": 2.1,
 	"taw": 3.0,
-	"sue": 4.0,
+	"sue": 3.7,
 }
 
 # Signal for requesting a move from the Nomino node
