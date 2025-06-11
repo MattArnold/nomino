@@ -26,6 +26,9 @@ const SPECIES_HOP_TIME = {
 # Signal for requesting a move from the Nomino node
 signal request_move(new_pos: Vector2i)
 signal selection_changed(nomino_node: Node, is_selected: bool)
+signal stomped(attacker: Node, defender: Node)
+signal stunned(nomino: Node)
+signal state_changed(nomino: Node, new_state: String)
 
 var is_selected: bool = false
 
