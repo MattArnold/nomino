@@ -66,44 +66,37 @@ func _ready():
 	# Set noise type for terrain_noise and elevation_noise in the Godot editor Inspector, not in code.
 	terrain_noise.seed = randi()
 	terrain_noise.frequency = 1  # controls patch size
-
 	elevation_noise.seed = randi()
 	elevation_noise.frequency = 0.1
-	distribute_terrain()
+	# --- Use TerrainGenerator utility ---
+	var result = TerrainGenerator.generate_terrain_and_elevation(WORLD_WIDTH, WORLD_HEIGHT, world_offset_x, world_offset_y, SEA_LEVEL, terrain_noise, elevation_noise)
+	terrain_map = result["terrain_map"]
+	elevation_map = result["elevation_map"]
 	decorate_terrain()
 	place_tiles()
 	spawn_nominos()
 	# spawn_nomino() # For debugging
 
-func distribute_terrain():
-	terrain_map = []
-	tile_sprites = []
-	var _tiles_created = 0
-	elevation_map = []
+func decorate_terrain():
+	for x in range(GRID_SIZE):
+		for y in range(GRID_SIZE):
+			if terrain_map[x][y] != "grass":
+				continue
 
-	for x in range(WORLD_WIDTH):
-		tile_sprites.append([])
-		terrain_map.append([])
-		elevation_map.append([])
-		for y in range(WORLD_HEIGHT):
-			var world_x = x + world_offset_x
-			var world_y = y + world_offset_y
+			# Check cardinal neighbors
+			var adjacent_types = []
+			for offset in [Vector2(-1,0), Vector2(1,0), Vector2(0,-1), Vector2(0,1)]:
+				var nx = x + int(offset.x)
+				var ny = y + int(offset.y)
 
-			# Terrain type noise
-			var t_raw = terrain_noise.get_noise_2d(world_x * 0.1, world_y * 0.1)
-			var t = (t_raw + 1.0) / 2.0
-			var terrain = "sand" if t > 0.5 else "grass"
+				if nx < 0 or nx >= GRID_SIZE or ny < 0 or ny >= GRID_SIZE:
+					adjacent_types.append("edge")  # treat out-of-bounds as edge
+				else:
+					adjacent_types.append(terrain_map[nx][ny])
 
-			# Elevation noise
-			var e = elevation_noise.get_noise_2d(world_x + 1000, world_y + 1000)
-			var elevation = int(round(e * 3))
-
-			if elevation < SEA_LEVEL:
-				terrain = "water"
-				elevation = SEA_LEVEL
-
-			terrain_map[x].append(terrain)
-			elevation_map[x].append(elevation)
+			# Promote grass to grass+plants if fully surrounded by grass
+			if adjacent_types.all(func(t): return t == "grass"):
+				terrain_map[x][y] = "plants"
 
 func place_tiles():
 	# Clear existing tiles from scene and memory
@@ -142,27 +135,6 @@ func place_tiles():
 			if wx >= 0 and wx < WORLD_WIDTH and wy >= 0 and wy < WORLD_HEIGHT:
 				var elevation = elevation_map[wx][wy]
 				tile_sprite.position.y -= elevation * 6
-
-func decorate_terrain():
-	for x in range(GRID_SIZE):
-		for y in range(GRID_SIZE):
-			if terrain_map[x][y] != "grass":
-				continue
-
-			# Check cardinal neighbors
-			var adjacent_types = []
-			for offset in [Vector2(-1,0), Vector2(1,0), Vector2(0,-1), Vector2(0,1)]:
-				var nx = x + int(offset.x)
-				var ny = y + int(offset.y)
-
-				if nx < 0 or nx >= GRID_SIZE or ny < 0 or ny >= GRID_SIZE:
-					adjacent_types.append("edge")  # treat out-of-bounds as edge
-				else:
-					adjacent_types.append(terrain_map[nx][ny])
-
-			# Promote grass to grass+plants if fully surrounded by grass
-			if adjacent_types.all(func(t): return t == "grass"):
-				terrain_map[x][y] = "plants"
 
 func create_tile_sprite(wx, wy):
 	var vx = wx - world_offset_x
@@ -563,17 +535,3 @@ func notify_nomino_selection(nomino_node, selected):
 		on_nomino_selected(nomino_node)
 	else:
 		on_nomino_deselected()
-
-# --- Patch _unhandled_input to notify selection ---
-func _unhandled_input(event):
-	if nomino_click_handled_this_frame:
-		return
-	# Handle mouse clicks on the grid
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
-		var local_pos = to_local(event.position) - screen_offset
-		var viewboard_coords = screen_to_viewboard_coords(local_pos)
-
-		# Check if the click is within our grid bounds
-		if viewboard_coords.x >= 0 and viewboard_coords.x < GRID_SIZE and viewboard_coords.y >= 0 and viewboard_coords.y < GRID_SIZE:
-			var world_coords = viewboard_to_world_coords(viewboard_coords.x, viewboard_coords.y)
