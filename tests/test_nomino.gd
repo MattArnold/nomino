@@ -27,7 +27,9 @@ func before_each():
 	# Use the same placement logic as the game
 	var gwm = get_tree().get_root().find_child("GameWorldManager", true, false)
 	assert_not_null(gwm, "GameWorldManager node not found. Test aborted.")
-	gwm.place_nomino(nomino_data)
+	# Ensure screen_size is up to date before placement
+	gwm.nomino_manager.screen_size = gwm.nomino_manager.screen_size if gwm.nomino_manager.screen_size else Vector2(1024, 768)
+	gwm.nomino_manager.place_nomino(nomino_data, gwm, gwm.nomino_manager.screen_size)
 	nomino = nomino_data.node
 	# Connect the request_move signal to update world_pos for testing
 	nomino.request_move.connect(func(new_pos): nomino.world_pos = new_pos)

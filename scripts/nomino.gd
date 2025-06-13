@@ -89,8 +89,8 @@ func _input_event(_viewport, event, _shape_idx):
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		set_selected(true)
 		var gwm = get_tree().get_root().find_child("GameWorldManager", true, false)
-		if gwm:
-			gwm.nomino_click_handled_this_frame = true
+		if gwm and gwm.nomino_manager:
+			gwm.nomino_manager.nomino_click_handled_this_frame = true
 		# event.consume() # Preferred in Godot 4.x, but if it fails, use the line below:
 		# get_viewport().set_input_as_handled() # Fallback: prevent event from propagating to tile below
 

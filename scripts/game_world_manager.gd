@@ -1,9 +1,4 @@
 extends Node2D
-const NOMINO_SCENE = preload("res://nomino.tscn")
-
-const WORLD_WIDTH = 64
-const WORLD_HEIGHT = 64
-
 # --- Remove terrain/tile logic and variables, use TerrainManager instead ---
 # (All terrain/tile variables and methods have been moved to terrain_manager.gd)
 # Add TerrainManager instance
@@ -13,7 +8,15 @@ var terrain_manager := preload("res://scripts/terrain_manager.gd").new()
 const ViewboardManager = preload("res://scripts/viewboard_manager.gd")
 var viewboard_manager := ViewboardManager.new()
 
-var nominos = []  # stores NominoData instances
+# --- NominoManager ---
+var NominoManager = load("res://scripts/nomino_manager.gd")
+var nomino_manager = NominoManager.new()
+
+const NOMINO_SCENE = preload("res://nomino.tscn")
+const WORLD_WIDTH = 64
+const WORLD_HEIGHT = 64
+const NUM_NOMINOS = 99 # Number of Nominos to spawn
+const DEFAULT_GRID_SIZE = 12 # Default number of tiles along each edge of the viewboard
 
 var tile_textures = {
 	"grass": preload("res://assets/tiles/grass_cube.png"),
@@ -23,65 +26,28 @@ var tile_textures = {
 	"border": preload("res://assets/tiles/border_cube.png"), # Added border texture
 }
 
-const NUM_NOMINOS = 99 # Number of Nominos to spawn
-const DEFAULT_GRID_SIZE = 12 # Default number of tiles along each edge of the viewboard
-
-var nomino_click_handled_this_frame: bool = false
-
-# --- Highlighting for Nomino move targets ---
-var highlighted_tiles := [] # Array of (vx, vy) tuples currently highlighted
-var selected_nomino: Node = null # Reference to currently selected NominoData or node
-
 func _ready():
 	randomize()
-	# Add a dedicated NominoLayer for nomino sprites
-	if not has_node("NominoLayer"):
-		var nomino_layer = Node2D.new()
-		nomino_layer.name = "NominoLayer"
-		add_child(nomino_layer)
+	var screen_size = get_viewport().get_visible_rect().size
+	nomino_manager.screen_size = screen_size
+	# Add a dedicated NominoLayer for nomino sprites (NominoManager will handle this)
 	# --- Use TerrainManager for terrain setup and tile placement ---
-	var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
 	terrain_manager.setup_terrain(viewboard_manager)
-	terrain_manager.place_tiles(viewboard_manager, screen_offset, self)
-	spawn_nominos()
-	# spawn_nomino() # For debugging
+	terrain_manager.place_tiles(viewboard_manager, screen_size / 2 - Vector2(0, 175), self)
+	# Setup NominoManager dependencies
+	nomino_manager.setup(terrain_manager, viewboard_manager, NOMINO_SCENE, WORLD_WIDTH, WORLD_HEIGHT, NUM_NOMINOS)
+	nomino_manager.spawn_nominos(self, screen_size)
 
 func update_viewboard_tiles():
-	var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
-	terrain_manager.update_viewboard_tiles(viewboard_manager, selected_nomino, highlighted_tiles, clear_tile_highlights, highlight_nomino_targets, screen_offset)
+	var screen_size = get_viewport().get_visible_rect().size
+	nomino_manager.screen_size = screen_size
+	var screen_offset = screen_size / 2 - Vector2(0, 175)
+	terrain_manager.update_viewboard_tiles(viewboard_manager, nomino_manager.selected_nomino, nomino_manager.highlighted_tiles, nomino_manager.clear_tile_highlights, nomino_manager.highlight_nomino_targets, screen_offset)
 
 func update_nomino_positions():
-	for n in nominos:
-		if not is_instance_valid(n.node):
-			continue  # node has been freed or not created yet
-		var world_x = n.pos.x
-		var world_y = n.pos.y
-		var viewboard_x = world_x - viewboard_manager.world_offset_x
-		var viewboard_y = world_y - viewboard_manager.world_offset_y
-		# Error logging for out-of-bounds
-		if world_x < 0 or world_x >= WORLD_WIDTH or world_y < 0 or world_y >= WORLD_HEIGHT:
-			continue
-		# Check if Nomino is in view
-		if viewboard_x < 0 or viewboard_x >= viewboard_manager.grid_size or viewboard_y < 0 or viewboard_y >= viewboard_manager.grid_size:
-			n.node.visible = false
-			continue
-		var screen_pos = viewboard_manager.viewboard_to_screen_coords(viewboard_x - 1, viewboard_y - 1)
-		var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
-		n.node.position = screen_pos + screen_offset
-		if world_x >= 0 and world_x < WORLD_WIDTH and world_y >= 0 and world_y < WORLD_HEIGHT:
-			n.node.position.y -= terrain_manager.elevation_map[world_x][world_y] * 6
-		else:
-			push_warning("update_nomino_positions: Elevation map out-of-bounds for (" + str(world_x) + ", " + str(world_y) + ")")
-		n.node.z_index = 1000 + world_y
-		n.node.visible = true
-		# --- Ensure nomino sprite scales with zoom ---
-		var sprite2d = n.node.get_node_or_null("Sprite2D")
-		if sprite2d and sprite2d.texture:
-			var tex_size = sprite2d.texture.get_size()
-			if tex_size.x > 0 and tex_size.y > 0:
-				sprite2d.scale = Vector2(viewboard_manager.tile_width / tex_size.x, viewboard_manager.tile_width / tex_size.y)
-		else:
-			push_warning("update_nomino_positions: Sprite2D or its texture missing for Nomino node.")
+	var screen_size = get_viewport().get_visible_rect().size
+	nomino_manager.screen_size = screen_size
+	nomino_manager.update_nomino_positions(self, screen_size)
 
 func move_viewboard(dx, dy):
 	if viewboard_manager.move_viewboard(dx, dy, WORLD_WIDTH, WORLD_HEIGHT):
@@ -91,151 +57,6 @@ func move_viewboard(dx, dy):
 		var controls = get_tree().get_root().find_child("ViewboardControls", true, false)
 		if controls and controls.has_method("update_scroll_buttons"):
 			controls.update_scroll_buttons()
-
-# Spawns all Nominos at unique positions and assigns them random movement patterns.
-# Each Nomino is a dictionary with keys: 'pos' (Vector2i), 'node' (instance), and 'move_types' (Array of movement pattern names).
-func spawn_nominos():
-	nominos.clear() # Clear any previous nominos
-	# Remove and recreate NominoLayer cleanly
-	if has_node("NominoLayer"):
-		var old_layer = get_node("NominoLayer")
-		remove_child(old_layer)
-		old_layer.queue_free()
-	var nomino_layer = Node2D.new()
-	nomino_layer.name = "NominoLayer"
-	add_child(nomino_layer)
-
-	# --- Ensure unique positions for each nomino ---
-	var all_positions = []
-	for x in range(WORLD_WIDTH):
-		for y in range(WORLD_HEIGHT):
-			all_positions.append(Vector2i(x, y))
-	all_positions.shuffle()
-	for i in range(NUM_NOMINOS):
-		var pos = all_positions[i]
-		# Assign a random movement pattern for demonstration; replace with your logic as needed
-		var move_patterns = ["orthostep", "diagstep", "orthojump", "diagjump", "clockwiseknight", "counterknight"]
-		var num_types = randi() % 2 + 1  # Each Nomino gets 1 or 2 move types
-		var move_types = []
-		for j in range(num_types):
-			var t = move_patterns[randi() % move_patterns.size()]
-			if t not in move_types:
-				move_types.append(t)
-		# Assign a random species name
-		var species_names = ["poe", "taw", "sue"]
-		var species = species_names[randi() % species_names.size()]
-		# Create NominoData instance and set properties
-		var nomino_data = NominoData.new()
-		nomino_data.pos = pos
-		# Assign move_types using add() to avoid type errors
-		for t in move_types:
-			nomino_data.move_types.append(str(t))
-		nomino_data.species = species
-		nominos.append(nomino_data)
-		place_nomino(nomino_data)
-
-# Spawns a single Nomino at (5, 5) with orthostep movement
-func spawn_nomino():
-	var nomino_data = NominoData.new()
-	nomino_data.pos = Vector2i(5, 5)
-	nomino_data.move_types.append("orthostep")
-	nomino_data.species = "poe"
-	nominos.clear()
-	nominos.append(nomino_data)
-	place_nomino(nomino_data)
-
-# Places a Nomino instance in the scene at its world position, updating its sprite and visibility.
-# Handles freeing any previous node instance for this Nomino.
-func place_nomino(n):
-	# n is now a NominoData instance
-	# Delete existing node if present and still in scene tree
-	if n.node and is_instance_valid(n.node):
-		n.node.queue_free()
-
-	var world_x = n.pos.x
-	var world_y = n.pos.y
-	var viewboard_x = world_x - viewboard_manager.world_offset_x
-	var viewboard_y = world_y - viewboard_manager.world_offset_y
-
-	# Error logging for out-of-bounds access
-	if world_x < 0 or world_x >= WORLD_WIDTH or world_y < 0 or world_y >= WORLD_HEIGHT:
-		push_error("place_nomino: Nomino position out of world bounds: (" + str(world_x) + ", " + str(world_y) + ")")
-		return
-
-	# Create the Nomino sprite and add to NominoLayer
-	var sprite = NOMINO_SCENE.instantiate()
-	# Set species property before adding to scene
-	sprite.species = n.species
-	# Assign move_types from NominoData to Nomino node
-	sprite.move_types.clear()
-	for t in n.move_types:
-		sprite.move_types.append(t)
-	# Add to Nominos group for group management
-	sprite.add_to_group("Nominos")
-
-	# Connect the request_move signal to the world manager
-	sprite.request_move.connect(_on_nomino_request_move.bind(n))
-	# Connect the selection_changed signal to the world manager
-	sprite.selection_changed.connect(notify_nomino_selection)
-
-	var sprite2d = sprite.get_node_or_null("Sprite2D")
-	if not sprite2d:
-		push_error("place_nomino: Sprite2D node missing in Nomino scene.")
-	elif not sprite2d.texture:
-		push_error("place_nomino: Sprite2D texture missing in Nomino scene.")
-	else:
-		# Sprite assignment is handled by nomino.gd via species
-		var tex_size = sprite2d.texture.get_size()
-		if tex_size.x > 0 and tex_size.y > 0:
-			sprite2d.scale = Vector2(viewboard_manager.tile_width / tex_size.x, viewboard_manager.tile_width / tex_size.y)
-
-	var screen_pos = viewboard_manager.viewboard_to_screen_coords(viewboard_x - 1, viewboard_y - 1)
-	var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
-	sprite.position = screen_pos + screen_offset
-	if world_x >= 0 and world_x < WORLD_WIDTH and world_y >= 0 and world_y < WORLD_HEIGHT:
-		sprite.position.y -= terrain_manager.elevation_map[world_x][world_y] * 6
-	else:
-		push_error("place_nomino: Elevation map out-of-bounds for (" + str(world_x) + ", " + str(world_y) + ")")
-	sprite.z_index = 1000 + world_y # ensure above tiles
-	var nomino_layer = get_node_or_null("NominoLayer")
-	if not nomino_layer:
-		push_error("place_nomino: NominoLayer node missing.")
-	else:
-		nomino_layer.add_child(sprite)
-
-	# Set visibility based on whether the nomino is in the viewboard
-	if viewboard_x >= 0 and viewboard_x < viewboard_manager.grid_size and viewboard_y >= 0 and viewboard_y < viewboard_manager.grid_size:
-		sprite.visible = true
-	else:
-		sprite.visible = false
-
-	n.node = sprite
-	# Set the Nomino's world_pos before starting the timer
-	if sprite.has_method("set_world_pos"):
-		sprite.set_world_pos(n.pos)
-	else:
-		sprite.world_pos = n.pos
-	# Start the Nomino's timer after world_pos is set
-	if sprite.has_method("start_autonomous_timer"):
-		sprite.start_autonomous_timer()
-
-# Handle move requests from Nomino nodes
-func _on_nomino_request_move(new_pos: Vector2i, n):
-	# Validate and apply the move for the NominoData instance n
-	var world_x = new_pos.x
-	var world_y = new_pos.y
-	# Check world bounds
-	if world_x < 0 or world_x >= WORLD_WIDTH or world_y < 0 or world_y >= WORLD_HEIGHT:
-		return # Ignore out-of-bounds moves
-	# Optionally, add more validation here (e.g., collision, terrain)
-	n.pos = new_pos
-	# Keep Nomino node's world_pos in sync for autonomous movement
-	if n.node and is_instance_valid(n.node):
-		if n.node.has_method("set_world_pos"):
-			n.node.set_world_pos(new_pos)
-		else:
-			n.node.world_pos = new_pos
-	update_nomino_positions()
 
 # --- ZOOM IN/OUT: Adjust GRID_SIZE and recalculate tile sizes ---
 func zoom_in():
@@ -251,63 +72,6 @@ func zoom_out():
 		terrain_manager.place_tiles(viewboard_manager, screen_offset, self)
 		update_viewboard_tiles()
 		update_nomino_positions()
-
-# Call this to clear all tile highlights
-func clear_tile_highlights():
-	for tile in highlighted_tiles:
-		var vx = tile.x
-		var vy = tile.y
-		if vx >= 0 and vx < viewboard_manager.grid_size and vy >= 0 and vy < viewboard_manager.grid_size:
-			var sprite = terrain_manager.tile_sprites[vx][vy]
-			if sprite:
-				sprite.modulate = Color(1, 1, 1, 1)
-	highlighted_tiles.clear()
-
-# Call this to highlight all target tiles for a Nomino
-func highlight_nomino_targets(nomino_node):
-	clear_tile_highlights()
-	if not nomino_node:
-		return
-	# Find the NominoData for this node
-	var nomino_data = null
-	for n in nominos:
-		if n.node == nomino_node:
-			nomino_data = n
-			break
-	if not nomino_data:
-		return
-	var pos = nomino_data.pos
-	for move_type in nomino_data.move_types:
-		if move_type in nomino_node.NOMINO_MOVES:
-			var deltas = nomino_node.NOMINO_MOVES[move_type]
-			for delta in deltas:
-				var target = pos + Vector2i(int(delta.x), int(delta.y))
-				# Only highlight if in world bounds and in viewboard
-				if target.x >= 0 and target.x < WORLD_WIDTH and target.y >= 0 and target.y < WORLD_HEIGHT:
-					var vx = target.x - viewboard_manager.world_offset_x
-					var vy = target.y - viewboard_manager.world_offset_y
-					if vx >= 0 and vx < viewboard_manager.grid_size and vy >= 0 and vy < viewboard_manager.grid_size:
-						var sprite = terrain_manager.tile_sprites[vx][vy]
-						if sprite:
-							sprite.modulate = Color(2, 2, 2, 1)
-						highlighted_tiles.append(Vector2i(vx, vy))
-
-# Patch Nomino selection logic to call highlight_nomino_targets
-func on_nomino_selected(nomino_node):
-	selected_nomino = nomino_node
-	highlight_nomino_targets(nomino_node)
-
-func on_nomino_deselected():
-	selected_nomino = null
-	clear_tile_highlights()
-
-# --- Patch Nomino selection ---
-# Wrap set_selected on Nomino nodes to notify us
-func notify_nomino_selection(nomino_node, selected):
-	if selected:
-		on_nomino_selected(nomino_node)
-	else:
-		on_nomino_deselected()
 
 # --- Coordinate conversion passthroughs for scene scripts ---
 func world_to_viewboard_coords(world_x, world_y):
