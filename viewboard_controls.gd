@@ -174,10 +174,11 @@ func update_scroll_buttons():
 		return
 
 	# Check if scrolling in each direction is possible
-	var can_north = game_world_manager.world_offset_y > 0
-	var can_south = game_world_manager.world_offset_y < game_world_manager.WORLD_HEIGHT - game_world_manager.GRID_SIZE
-	var can_west = game_world_manager.world_offset_x > 0
-	var can_east = game_world_manager.world_offset_x < game_world_manager.WORLD_WIDTH - game_world_manager.GRID_SIZE
+	var viewboard = game_world_manager.viewboard_manager
+	var can_north = viewboard.world_offset_y > 0
+	var can_south = viewboard.world_offset_y < game_world_manager.WORLD_HEIGHT - viewboard.grid_size
+	var can_west = viewboard.world_offset_x > 0
+	var can_east = viewboard.world_offset_x < game_world_manager.WORLD_WIDTH - viewboard.grid_size
 
 	scroll_pad.get_node("ButtonNorth").disabled = not can_north
 	scroll_pad.get_node("ButtonSouth").disabled = not can_south

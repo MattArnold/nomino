@@ -7,13 +7,10 @@ const WORLD_HEIGHT = 64
 # Grid configuration
 const SEA_LEVEL = -0.5
 const VIEWBOARD_PIXEL_WIDTH := 768.0
-var GRID_SIZE = DEFAULT_GRID_SIZE  # Number of tiles along each edge of the viewboard
-var TILE_WIDTH = VIEWBOARD_PIXEL_WIDTH / GRID_SIZE  # Width of each tile in pixels
-var TILE_HEIGHT = TILE_WIDTH / 2  # Height of each tile in pixels (half of width for isometric)
 
-# World position offset - this determines which part of the world we're viewing
-var world_offset_x = 0
-var world_offset_y = 0
+# --- Viewboard/Camera State ---
+const ViewboardManager = preload("res://viewboard_manager.gd")
+var viewboard_manager := ViewboardManager.new()
 
 # Storage for tile sprites
 var tile_sprites = []
@@ -50,7 +47,7 @@ var highlighted_tiles := [] # Array of (vx, vy) tuples currently highlighted
 var selected_nomino: Node = null # Reference to currently selected NominoData or node
 
 # --- Coordinate conversion utility import ---
-const CoordinateUtils = preload("utils/coordinate_utils.gd")
+# (Now handled by viewboard_manager)
 
 func _ready():
 	randomize()
@@ -65,7 +62,7 @@ func _ready():
 	elevation_noise.seed = randi()
 	elevation_noise.frequency = 0.1
 	# --- Use TerrainGenerator utility ---
-	var result = TerrainGenerator.generate_terrain_and_elevation(WORLD_WIDTH, WORLD_HEIGHT, world_offset_x, world_offset_y, SEA_LEVEL, terrain_noise, elevation_noise)
+	var result = TerrainGenerator.generate_terrain_and_elevation(WORLD_WIDTH, WORLD_HEIGHT, viewboard_manager.world_offset_x, viewboard_manager.world_offset_y, SEA_LEVEL, terrain_noise, elevation_noise)
 	terrain_map = result["terrain_map"]
 	elevation_map = result["elevation_map"]
 	decorate_terrain()
@@ -74,8 +71,8 @@ func _ready():
 	# spawn_nomino() # For debugging
 
 func decorate_terrain():
-	for x in range(GRID_SIZE):
-		for y in range(GRID_SIZE):
+	for x in range(viewboard_manager.grid_size):
+		for y in range(viewboard_manager.grid_size):
 			if terrain_map[x][y] != "grass":
 				continue
 
@@ -85,7 +82,7 @@ func decorate_terrain():
 				var nx = x + int(offset.x)
 				var ny = y + int(offset.y)
 
-				if nx < 0 or nx >= GRID_SIZE or ny < 0 or ny >= GRID_SIZE:
+				if nx < 0 or nx >= viewboard_manager.grid_size or ny < 0 or ny >= viewboard_manager.grid_size:
 					adjacent_types.append("edge")  # treat out-of-bounds as edge
 				else:
 					adjacent_types.append(terrain_map[nx][ny])
@@ -104,11 +101,11 @@ func place_tiles():
 
 	# Create new tile sprites for current GRID_SIZE
 	tile_sprites = []
-	for vx in range(GRID_SIZE):
+	for vx in range(viewboard_manager.grid_size):
 		tile_sprites.append([])
-		for vy in range(GRID_SIZE):
-			var wx = vx + world_offset_x
-			var wy = vy + world_offset_y
+		for vy in range(viewboard_manager.grid_size):
+			var wx = vx + viewboard_manager.world_offset_x
+			var wy = vy + viewboard_manager.world_offset_y
 
 			var tile_sprite
 			if wx < 0 or wx >= WORLD_WIDTH or wy < 0 or wy >= WORLD_HEIGHT:
@@ -119,7 +116,7 @@ func place_tiles():
 				# Scale border sprite
 				var tex_size = tile_sprite.texture.get_size()
 				if tex_size.x > 0 and tex_size.y > 0:
-					tile_sprite.scale = Vector2(TILE_WIDTH / tex_size.x, TILE_WIDTH / tex_size.y)
+					tile_sprite.scale = Vector2(viewboard_manager.tile_width / tex_size.x, viewboard_manager.tile_width / tex_size.y)
 			else:
 				tile_sprite = create_tile_sprite(wx, wy)
 			tile_sprites[vx].append(tile_sprite)
@@ -133,8 +130,8 @@ func place_tiles():
 				tile_sprite.position.y -= elevation * 6
 
 func create_tile_sprite(wx, wy):
-	var vx = wx - world_offset_x
-	var vy = wy - world_offset_y
+	var vx = wx - viewboard_manager.world_offset_x
+	var vy = wy - viewboard_manager.world_offset_y
 
 	var sprite = Sprite2D.new()
 	var terrain_type = terrain_map[wx][wy]
@@ -145,7 +142,7 @@ func create_tile_sprite(wx, wy):
 	# Scale the sprites to prevent them getting gaps when zooming in
 	var tex_size = sprite.texture.get_size()
 	if tex_size.x > 0 and tex_size.y > 0:
-		sprite.scale = Vector2(TILE_WIDTH / tex_size.x, TILE_WIDTH / tex_size.y)
+		sprite.scale = Vector2(viewboard_manager.tile_width / tex_size.x, viewboard_manager.tile_width / tex_size.y)
 
 	var screen_pos = viewboard_to_screen_coords(vx, vy)
 	var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
@@ -154,31 +151,24 @@ func create_tile_sprite(wx, wy):
 
 	return sprite
 
-# Converts viewboard grid coordinates (0..GRID_SIZE-1) to screen pixel coordinates for isometric rendering.
-# The resulting Vector2 is the pixel position on screen for the top-left corner of the tile at (viewboard_x, viewboard_y).
+# --- Replace coordinate conversion functions with calls to viewboard_manager ---
 func viewboard_to_screen_coords(viewboard_x, viewboard_y):
-	return CoordinateUtils.viewboard_to_screen_coords(viewboard_x, viewboard_y, TILE_WIDTH, TILE_HEIGHT)
+	return viewboard_manager.viewboard_to_screen_coords(viewboard_x, viewboard_y)
 
-# Converts a screen pixel position (relative to the viewboard origin) back to viewboard grid coordinates.
-# Returns a Vector2 of (viewboard_x, viewboard_y), rounded to the nearest integer grid cell.
 func screen_to_viewboard_coords(screen_pos):
-	return CoordinateUtils.screen_to_viewboard_coords(screen_pos, TILE_WIDTH, TILE_HEIGHT)
+	return viewboard_manager.screen_to_viewboard_coords(screen_pos)
 
-# Converts viewboard grid coordinates to world coordinates (absolute position in the game world).
-# Returns a Vector2 of (world_x, world_y).
 func viewboard_to_world_coords(viewboard_x, viewboard_y):
-	return CoordinateUtils.viewboard_to_world_coords(viewboard_x, viewboard_y, world_offset_x, world_offset_y)
+	return viewboard_manager.viewboard_to_world_coords(viewboard_x, viewboard_y)
 
-# Converts world coordinates to viewboard grid coordinates (relative to the current viewboard offset).
-# Returns a Vector2 of (viewboard_x, viewboard_y).
 func world_to_viewboard_coords(world_x, world_y):
-	return CoordinateUtils.world_to_viewboard_coords(world_x, world_y, world_offset_x, world_offset_y)
+	return viewboard_manager.world_to_viewboard_coords(world_x, world_y)
 
 func update_viewboard_tiles():
-	for vx in range(GRID_SIZE):
-		for vy in range(GRID_SIZE):
-			var wx = vx + world_offset_x
-			var wy = vy + world_offset_y
+	for vx in range(viewboard_manager.grid_size):
+		for vy in range(viewboard_manager.grid_size):
+			var wx = vx + viewboard_manager.world_offset_x
+			var wy = vy + viewboard_manager.world_offset_y
 
 			var sprite = tile_sprites[vx][vy]
 			if wx < 0 or wx >= WORLD_WIDTH or wy < 0 or wy >= WORLD_HEIGHT:
@@ -187,7 +177,7 @@ func update_viewboard_tiles():
 				# Scale border sprite
 				var tex_size = sprite.texture.get_size()
 				if tex_size.x > 0 and tex_size.y > 0:
-					sprite.scale = Vector2(TILE_WIDTH / tex_size.x, TILE_WIDTH / tex_size.y)
+					sprite.scale = Vector2(viewboard_manager.tile_width / tex_size.x, viewboard_manager.tile_width / tex_size.y)
 				# Position
 				var screen_pos = viewboard_to_screen_coords(vx, vy)
 				var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
@@ -200,7 +190,7 @@ func update_viewboard_tiles():
 				# Scale
 				var tex_size = sprite.texture.get_size()
 				if tex_size.x > 0 and tex_size.y > 0:
-					sprite.scale = Vector2(TILE_WIDTH / tex_size.x, TILE_WIDTH / tex_size.y)
+					sprite.scale = Vector2(viewboard_manager.tile_width / tex_size.x, viewboard_manager.tile_width / tex_size.y)
 				# Position
 				var screen_pos = viewboard_to_screen_coords(vx, vy)
 				var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
@@ -215,18 +205,16 @@ func update_viewboard_tiles():
 func update_nomino_positions():
 	for n in nominos:
 		if not is_instance_valid(n.node):
-			push_warning("update_nomino_positions: Nomino node is not valid.")
 			continue  # node has been freed or not created yet
 		var world_x = n.pos.x
 		var world_y = n.pos.y
-		var viewboard_x = world_x - world_offset_x
-		var viewboard_y = world_y - world_offset_y
+		var viewboard_x = world_x - viewboard_manager.world_offset_x
+		var viewboard_y = world_y - viewboard_manager.world_offset_y
 		# Error logging for out-of-bounds
 		if world_x < 0 or world_x >= WORLD_WIDTH or world_y < 0 or world_y >= WORLD_HEIGHT:
-			push_warning("update_nomino_positions: Nomino position out of world bounds: (" + str(world_x) + ", " + str(world_y) + ")")
 			continue
 		# Check if Nomino is in view
-		if viewboard_x < 0 or viewboard_x >= GRID_SIZE or viewboard_y < 0 or viewboard_y >= GRID_SIZE:
+		if viewboard_x < 0 or viewboard_x >= viewboard_manager.grid_size or viewboard_y < 0 or viewboard_y >= viewboard_manager.grid_size:
 			n.node.visible = false
 			continue
 		var screen_pos = viewboard_to_screen_coords(viewboard_x - 1, viewboard_y - 1)
@@ -243,24 +231,18 @@ func update_nomino_positions():
 		if sprite2d and sprite2d.texture:
 			var tex_size = sprite2d.texture.get_size()
 			if tex_size.x > 0 and tex_size.y > 0:
-				sprite2d.scale = Vector2(TILE_WIDTH / tex_size.x, TILE_WIDTH / tex_size.y)
+				sprite2d.scale = Vector2(viewboard_manager.tile_width / tex_size.x, viewboard_manager.tile_width / tex_size.y)
 		else:
 			push_warning("update_nomino_positions: Sprite2D or its texture missing for Nomino node.")
 
 func move_viewboard(dx, dy):
-	# Allow scrolling one step past the world bounds for border display
-	var new_offset_x = clamp(world_offset_x + dx, -1, WORLD_WIDTH - GRID_SIZE + 1)
-	var new_offset_y = clamp(world_offset_y + dy, -1, WORLD_HEIGHT - GRID_SIZE + 1)
-	if new_offset_x == world_offset_x and new_offset_y == world_offset_y:
-		return # No movement if already at edge
-	world_offset_x = new_offset_x
-	world_offset_y = new_offset_y
-	update_viewboard_tiles()
-	update_nomino_positions()
-	# Notify controls to update button states
-	var controls = get_tree().get_root().find_child("ViewboardControls", true, false)
-	if controls and controls.has_method("update_scroll_buttons"):
-		controls.update_scroll_buttons()
+	if viewboard_manager.move_viewboard(dx, dy, WORLD_WIDTH, WORLD_HEIGHT):
+		update_viewboard_tiles()
+		update_nomino_positions()
+		# Notify controls to update button states
+		var controls = get_tree().get_root().find_child("ViewboardControls", true, false)
+		if controls and controls.has_method("update_scroll_buttons"):
+			controls.update_scroll_buttons()
 
 # Spawns all Nominos at unique positions and assigns them random movement patterns.
 # Each Nomino is a dictionary with keys: 'pos' (Vector2i), 'node' (instance), and 'move_types' (Array of movement pattern names).
@@ -324,8 +306,8 @@ func place_nomino(n):
 
 	var world_x = n.pos.x
 	var world_y = n.pos.y
-	var viewboard_x = world_x - world_offset_x
-	var viewboard_y = world_y - world_offset_y
+	var viewboard_x = world_x - viewboard_manager.world_offset_x
+	var viewboard_y = world_y - viewboard_manager.world_offset_y
 
 	# Error logging for out-of-bounds access
 	if world_x < 0 or world_x >= WORLD_WIDTH or world_y < 0 or world_y >= WORLD_HEIGHT:
@@ -357,7 +339,7 @@ func place_nomino(n):
 		# Sprite assignment is handled by nomino.gd via species
 		var tex_size = sprite2d.texture.get_size()
 		if tex_size.x > 0 and tex_size.y > 0:
-			sprite2d.scale = Vector2(TILE_WIDTH / tex_size.x, TILE_WIDTH / tex_size.y)
+			sprite2d.scale = Vector2(viewboard_manager.tile_width / tex_size.x, viewboard_manager.tile_width / tex_size.y)
 
 	var screen_pos = viewboard_to_screen_coords(viewboard_x - 1, viewboard_y - 1)
 	var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
@@ -374,7 +356,7 @@ func place_nomino(n):
 		nomino_layer.add_child(sprite)
 
 	# Set visibility based on whether the nomino is in the viewboard
-	if viewboard_x >= 0 and viewboard_x < GRID_SIZE and viewboard_y >= 0 and viewboard_y < GRID_SIZE:
+	if viewboard_x >= 0 and viewboard_x < viewboard_manager.grid_size and viewboard_y >= 0 and viewboard_y < viewboard_manager.grid_size:
 		sprite.visible = true
 	else:
 		sprite.visible = false
@@ -409,21 +391,13 @@ func _on_nomino_request_move(new_pos: Vector2i, n):
 
 # --- ZOOM IN/OUT: Adjust GRID_SIZE and recalculate tile sizes ---
 func zoom_in():
-	# Show more tiles (smaller tiles)
-	if GRID_SIZE < 24:
-		GRID_SIZE += 1
-		TILE_WIDTH = VIEWBOARD_PIXEL_WIDTH / GRID_SIZE
-		TILE_HEIGHT = TILE_WIDTH / 2
+	if viewboard_manager.zoom_in():
 		place_tiles()
 		update_viewboard_tiles()
 		update_nomino_positions()
 
 func zoom_out():
-	# Show fewer tiles (larger tiles)
-	if GRID_SIZE > 6:
-		GRID_SIZE -= 1
-		TILE_WIDTH = VIEWBOARD_PIXEL_WIDTH / GRID_SIZE
-		TILE_HEIGHT = TILE_WIDTH / 2
+	if viewboard_manager.zoom_out():
 		place_tiles()
 		update_viewboard_tiles()
 		update_nomino_positions()
@@ -433,7 +407,7 @@ func clear_tile_highlights():
 	for tile in highlighted_tiles:
 		var vx = tile.x
 		var vy = tile.y
-		if vx >= 0 and vx < GRID_SIZE and vy >= 0 and vy < GRID_SIZE:
+		if vx >= 0 and vx < viewboard_manager.grid_size and vy >= 0 and vy < viewboard_manager.grid_size:
 			var sprite = tile_sprites[vx][vy]
 			if sprite:
 				sprite.modulate = Color(1, 1, 1, 1)
@@ -460,9 +434,9 @@ func highlight_nomino_targets(nomino_node):
 				var target = pos + Vector2i(int(delta.x), int(delta.y))
 				# Only highlight if in world bounds and in viewboard
 				if target.x >= 0 and target.x < WORLD_WIDTH and target.y >= 0 and target.y < WORLD_HEIGHT:
-					var vx = target.x - world_offset_x
-					var vy = target.y - world_offset_y
-					if vx >= 0 and vx < GRID_SIZE and vy >= 0 and vy < GRID_SIZE:
+					var vx = target.x - viewboard_manager.world_offset_x
+					var vy = target.y - viewboard_manager.world_offset_y
+					if vx >= 0 and vx < viewboard_manager.grid_size and vy >= 0 and vy < viewboard_manager.grid_size:
 						var sprite = tile_sprites[vx][vy]
 						if sprite:
 							sprite.modulate = Color(2, 2, 2, 1)
