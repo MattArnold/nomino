@@ -16,7 +16,7 @@ var world_offset_x := 0
 var world_offset_y := 0
 
 # --- Coordinate conversion utility import ---
-const CoordinateUtils = preload("utils/coordinate_utils.gd")
+const CoordinateUtils = preload("../utils/coordinate_utils.gd")
 
 # --- Coordinate Conversion Methods ---
 func viewboard_to_screen_coords(viewboard_x, viewboard_y):

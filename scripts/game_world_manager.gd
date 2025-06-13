@@ -9,7 +9,7 @@ const SEA_LEVEL = -0.5
 const VIEWBOARD_PIXEL_WIDTH := 768.0
 
 # --- Viewboard/Camera State ---
-const ViewboardManager = preload("res://viewboard_manager.gd")
+const ViewboardManager = preload("res://scripts/viewboard_manager.gd")
 var viewboard_manager := ViewboardManager.new()
 
 # Storage for tile sprites
