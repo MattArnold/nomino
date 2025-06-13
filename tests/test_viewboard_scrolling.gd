@@ -8,7 +8,7 @@ var game_world_manager
 
 func before_each():
 	# Load and add the main scene to ensure GameWorldManager exists
-	var main_scene = load("res://main.tscn")
+	var main_scene = load("res://scenes/main.tscn")
 	main_scene_instance = main_scene.instantiate()
 	get_tree().get_root().add_child(main_scene_instance)
 	await get_tree().process_frame  # Let the scene initialize

@@ -3,7 +3,7 @@
 
 extends GutTest
 
-const Nomino = preload("res://nomino.gd")
+const Nomino = preload("res://scripts/nomino.gd")
 
 var nomino
 var nomino_data
@@ -13,13 +13,13 @@ func before_each():
 	# Enable test mode for Nomino to bypass tweens
 	Nomino.test_mode = true
 	# Load and add the main scene to ensure GameWorldManager exists
-	var main_scene = load("res://main.tscn")
+	var main_scene = load("res://scenes/main.tscn")
 	main_scene_instance = main_scene.instantiate()
 	get_tree().get_root().add_child(main_scene_instance)
 	await get_tree().process_frame  # Let the scene initialize
 
 	# Create a NominoData instance for testing
-	nomino_data = load("res://nomino_data.gd").new()
+	nomino_data = load("res://scripts/nomino_data.gd").new()
 	nomino_data.pos = Vector2i(5, 5)
 	nomino_data.move_types.clear()
 	nomino_data.move_types.append("orthostep")

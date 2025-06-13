@@ -1,7 +1,7 @@
 # Unit tests for Nomino.get_valid_moves (pure movement logic)
 extends GutTest
 
-const Nomino = preload("res://nomino.gd")
+const Nomino = preload("res://scripts/nomino.gd")
 
 func to_sorted(arr):
 	var copy = arr.duplicate()

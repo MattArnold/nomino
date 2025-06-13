@@ -2,7 +2,7 @@
 # Unit tests for TerrainManager
 extends GutTest
 
-const TerrainManagerForTest = preload("res://terrain_manager.gd")
+const TerrainManagerForTest = preload("res://scripts/terrain_manager.gd")
 
 func test_generate_terrain_and_elevation_returns_expected_keys():
 	var terrain_noise = FastNoiseLite.new()
