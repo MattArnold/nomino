@@ -137,27 +137,18 @@ func connect_buttons():
 	)
 	scroll_pad.get_node("ButtonEast").button_up.connect(func(): current_viewboard_input = Vector2.ZERO)
 
-	# connect the scroll pad to the "w", "a", "s", and "d" keys for movement
-	InputMap.add_action("ScrollNorth")
-	InputMap.add_action("ScrollSouth")
-	InputMap.add_action("ScrollWest")
-	InputMap.add_action("ScrollEast")
-
 	var zoom_pad = get_node("ViewboardControlsContainer/ZoomPad")
 
 	zoom_pad.get_node("ButtonZoomIn").pressed.connect(func(): game_world_manager.zoom_in())
 	zoom_pad.get_node("ButtonZoomOut").pressed.connect(func(): game_world_manager.zoom_out())
 
-	# connect the zoom pad to the "q" and "e" keys for zooming
-	InputMap.add_action("ZoomIn")
-	InputMap.add_action("ZoomOut")
 	var zoom_in_event = InputEventKey.new()
 	zoom_in_event.keycode = KEY_Q
-	InputMap.action_add_event("ZoomIn", zoom_in_event)
+	InputMap.action_add_event("zoom_in", zoom_in_event)
 
 	var zoom_out_event = InputEventKey.new()
 	zoom_out_event.keycode = KEY_E
-	InputMap.action_add_event("ZoomOut", zoom_out_event)
+	InputMap.action_add_event("zoom_out", zoom_out_event)
 
 func responsive_hud_scale():
 	var screen_size = get_viewport_rect().size
@@ -194,9 +185,9 @@ func update_scroll_buttons():
 	scroll_pad.get_node("ButtonEast").disabled = not can_east
 
 func _input(event):
-	if event.is_action_pressed("ZoomIn"):
+	if event.is_action_pressed("zoom_in"):
 		game_world_manager.zoom_in()
-	elif event.is_action_pressed("ZoomOut"):
+	elif event.is_action_pressed("zoom_out"):
 		game_world_manager.zoom_out()
 	# Update scroll buttons on any input
 	update_scroll_buttons()
