@@ -30,13 +30,6 @@ var tile_textures = {
 	"border": preload("res://assets/tiles/border_cube.png"), # Added border texture
 }
 
-# Nomino sprite textures for random assignment
-const NOMINO_SPRITES = [
-	preload("res://assets/sprites/nomino0.png"),
-	preload("res://assets/sprites/nomino1.png"),
-	preload("res://assets/sprites/nomino2.png")
-]
-
 const NUM_NOMINOS = 99 # Number of Nominos to spawn
 const DEFAULT_GRID_SIZE = 12 # Default number of tiles along each edge of the viewboard
 
@@ -45,9 +38,6 @@ var nomino_click_handled_this_frame: bool = false
 # --- Highlighting for Nomino move targets ---
 var highlighted_tiles := [] # Array of (vx, vy) tuples currently highlighted
 var selected_nomino: Node = null # Reference to currently selected NominoData or node
-
-# --- Coordinate conversion utility import ---
-# (Now handled by viewboard_manager)
 
 func _ready():
 	randomize()
@@ -113,21 +103,17 @@ func place_tiles():
 				tile_sprite = Sprite2D.new()
 				tile_sprite.texture = tile_textures["border"]
 				tile_sprite.z_index = 0
-				# Scale border sprite
+				# Scale and position border sprite
 				var tex_size = tile_sprite.texture.get_size()
 				if tex_size.x > 0 and tex_size.y > 0:
 					tile_sprite.scale = Vector2(viewboard_manager.tile_width / tex_size.x, viewboard_manager.tile_width / tex_size.y)
+				var screen_pos = viewboard_to_screen_coords(vx, vy)
+				var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
+				tile_sprite.position = screen_pos + screen_offset
 			else:
 				tile_sprite = create_tile_sprite(wx, wy)
 			tile_sprites[vx].append(tile_sprite)
 			add_child(tile_sprite)
-			# Position sprite immediately
-			var screen_pos = viewboard_to_screen_coords(vx, vy)
-			var screen_offset = get_viewport_rect().size / 2 - Vector2(0, 175)
-			tile_sprite.position = screen_pos + screen_offset
-			if wx >= 0 and wx < WORLD_WIDTH and wy >= 0 and wy < WORLD_HEIGHT:
-				var elevation = elevation_map[wx][wy]
-				tile_sprite.position.y -= elevation * 6
 
 func create_tile_sprite(wx, wy):
 	var vx = wx - viewboard_manager.world_offset_x

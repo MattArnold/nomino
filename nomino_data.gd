@@ -18,7 +18,7 @@ var node: Node2D = null
 
 func _init(_pos := Vector2i(0,0), _move_types := [], _species := "poe", _loyalty := "wild", _state := "active"):
 	pos = _pos
-	move_types = []
+	# Only need to clear and append if _move_types is not empty
 	for t in _move_types:
 		move_types.append(str(t))
 	species = _species

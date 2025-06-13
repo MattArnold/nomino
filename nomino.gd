@@ -3,7 +3,6 @@ extends Area2D
 
 var move_types: Array[String] = []  # e.g. ["orthostep", "diagstep"]
 var timer: Timer
-var original_position: Vector2
 
 var sprite: Sprite2D
 
@@ -32,10 +31,6 @@ signal state_changed(nomino: Node, new_state: String)
 
 var is_selected: bool = false
 
-var collision_shape
-
-var current_selected_nomino: Area2D = null
-
 var world_pos: Vector2i # Logical world/tile coordinate
 
 # Static flag to enable test mode (bypasses tweens for testability)
@@ -53,9 +48,6 @@ func _ready():
 	add_child(timer)
 	timer.timeout.connect(_on_timer_timeout)
 	# timer.start() # Do not start here
-
-	# Store original position for jump animation
-	original_position = position
 
 	# Get reference to Sprite2D
 	sprite = get_node("Sprite2D")
@@ -81,7 +73,7 @@ func _ready():
 		new_collision_shape.position = Vector2.ZERO
 		add_child(new_collision_shape)
 	# Assign RectangleShape2D to CollisionShape2D if not set in editor
-	collision_shape = get_node_or_null("CollisionShape2D")
+	var collision_shape = get_node_or_null("CollisionShape2D")
 	if collision_shape and not collision_shape.shape:
 		var new_rect_shape = RectangleShape2D.new()
 		new_rect_shape.extents = Vector2(32, 32)
@@ -111,13 +103,6 @@ func set_selected(selected: bool):
 			if n != self:
 				n.set_selected(false)
 	is_selected = selected
-	if selected:
-		if current_selected_nomino and current_selected_nomino != self:
-			current_selected_nomino.set_selected(false)
-		current_selected_nomino = self
-	else:
-		if current_selected_nomino == self:
-			current_selected_nomino = null
 	if sprite:
 		if selected:
 			sprite.modulate = Color(1.5, 1.5, 1.5, 1) # Lighten
