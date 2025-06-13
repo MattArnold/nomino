@@ -146,10 +146,10 @@ func _on_timer_timeout():
 				origin_screen += screen_offset
 				dest_screen += screen_offset
 				# --- Apply elevation offset to both origin and destination ---
-				if gwm and gwm.elevation_map and gwm.elevation_map.size() > origin_world.x and gwm.elevation_map[origin_world.x].size() > origin_world.y:
-					origin_screen.y -= gwm.elevation_map[origin_world.x][origin_world.y] * 6
-				if gwm and gwm.elevation_map and gwm.elevation_map.size() > dest_world.x and gwm.elevation_map[dest_world.x].size() > dest_world.y:
-					dest_screen.y -= gwm.elevation_map[dest_world.x][dest_world.y] * 6
+				if gwm.terrain_manager and gwm.terrain_manager.elevation_map and gwm.terrain_manager.elevation_map.size() > origin_world.x and gwm.terrain_manager.elevation_map[origin_world.x].size() > origin_world.y:
+					origin_screen.y -= gwm.terrain_manager.elevation_map[origin_world.x][origin_world.y] * 6
+				if gwm.terrain_manager and gwm.terrain_manager.elevation_map and gwm.terrain_manager.elevation_map.size() > dest_world.x and gwm.terrain_manager.elevation_map[dest_world.x].size() > dest_world.y:
+					dest_screen.y -= gwm.terrain_manager.elevation_map[dest_world.x][dest_world.y] * 6
 				# Animate position and y-offset for parabola
 				var hop_height = 32
 				var hop_duration = 0.5
